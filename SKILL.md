@@ -8,7 +8,7 @@ description: >-
 
 # vite-browser
 
-`npm install -g @vercel/vite-browser` then `npx playwright install chromium`.
+`npm install -g vite-browser` then `npx playwright install chromium`.
 
 Daemon at `~/.vite-browser/default.sock`. One browser, one page.
 

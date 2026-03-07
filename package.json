@@ -1,22 +1,14 @@
 {
-  "name": "@vercel/vite-browser",
+  "name": "vite-browser",
   "version": "0.1.0",
-  "description": "Programmatic access to Vue/React DevTools and Vite dev server for AI agents",
+  "description": "CLI for programmatic access to Vue/React DevTools in Vite applications",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/vercel-labs/vite-browser.git"
-  },
   "type": "module",
   "engines": {
     "node": ">=20"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "files": [
-    "dist",
-    "extensions"
+    "dist"
   ],
   "bin": {
     "vite-browser": "./dist/cli.js"

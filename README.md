@@ -1,122 +1,147 @@
-# @vercel/vite-browser
+# vite-browser
 
-Programmatic access to Vue/React DevTools and Vite dev server. Everything you'd interact with in a GUI — component trees, props, state, Pinia stores, HMR status, build errors — exposed as shell commands that return structured text.
+CLI for programmatic access to Vue/React DevTools in Vite applications. Provides component trees, props, state, Pinia stores, Vue Router, console logs, and network requests as structured text output — designed for AI agents and automation.
 
-Built for agents. An LLM can't read a DevTools panel, but it can run `vite-browser vue tree`, parse the output, and decide what to inspect next. Each command is a stateless one-shot against a long-lived browser daemon, so an agent loop can fire them off without managing browser lifecycle.
-
-## Status
-
-🚧 **Early prototype** - Basic architecture in place, Vue/React DevTools integration in progress.
-
-## Install
+## Installation
 
 ```bash
-pnpm add -g @vercel/vite-browser
+npm install -g vite-browser
 npx playwright install chromium
 ```
 
-Requires Node `>=20`.
-
-## Usage
+## Quick Start
 
 ```bash
+# Start your Vite dev server
+cd my-vue-app
+npm run dev
+
+# In another terminal
 vite-browser open http://localhost:5173
-vite-browser detect
-vite-browser vue tree
-vite-browser errors
+vite-browser detect              # vue@3.5.29
+vite-browser vue tree            # Component tree
+vite-browser vue pinia           # Pinia stores
+vite-browser vue router          # Vue Router info
+vite-browser screenshot          # Take screenshot
+vite-browser logs                # Console logs
+vite-browser network             # Network requests
 vite-browser close
 ```
+
+## Features
+
+- **Framework Detection**: Auto-detect Vue, React, Svelte and their versions
+- **Vue DevTools**: Component tree, props, state, computed properties, source locations
+- **Pinia Integration**: Inspect store state and getters
+- **Vue Router**: Current route, params, query, all routes
+- **Network Monitoring**: Track all HTTP requests with headers and bodies
+- **Console Logs**: Capture console.log, warn, error, debug
+- **Screenshots**: Full-page PNG screenshots
+- **JavaScript Evaluation**: Run arbitrary JS in page context
+- **Vite Integration**: Error tracking, HMR monitoring
 
 ## Commands
 
 ### Browser Control
-```
-open <url> [--cookies-json <file>]  Launch browser and navigate
-close                               Close browser and daemon
-goto <url>                          Full-page navigation
-back                                Go back in history
-reload                              Reload current page
+```bash
+vite-browser open <url>           # Launch browser and navigate
+vite-browser close                # Close browser and daemon
+vite-browser goto <url>           # Navigate to URL
+vite-browser back                 # Go back
+vite-browser reload               # Reload page
 ```
 
 ### Framework Detection
-```
-detect                              Detect framework (vue/react/svelte)
-```
-
-### Vue Commands
-```
-vue tree [id]                       Show Vue component tree or inspect component
-vue pinia [store]                   Show Pinia stores or inspect specific store
-vue router                          Show Vue Router information
+```bash
+vite-browser detect               # Detect framework and version
 ```
 
-### React Commands
-```
-react tree [id]                     Show React component tree or inspect component
-```
-
-### Vite Commands
-```
-vite restart                        Restart Vite dev server
-vite hmr                            Show HMR status
-errors                              Show build/runtime errors
-logs                                Show dev server logs
+### Vue DevTools
+```bash
+vite-browser vue tree             # Show component tree
+vite-browser vue tree <id>        # Inspect component details
+vite-browser vue pinia            # List all Pinia stores
+vite-browser vue pinia <store>    # Inspect specific store
+vite-browser vue router           # Show router information
 ```
 
-### Utilities
+### Debugging
+```bash
+vite-browser screenshot           # Take full-page screenshot
+vite-browser eval <script>        # Run JavaScript in page
+vite-browser logs                 # Show console logs
+vite-browser errors               # Show Vite errors
+vite-browser network              # List network requests
+vite-browser network <idx>        # Inspect specific request
 ```
-screenshot                          Save screenshot to temp file
-eval <script>                       Evaluate JavaScript in page context
-network [idx]                       List network requests or inspect one
+
+## Example Output
+
+### Component Tree
+```
+$ vite-browser vue tree
+# Vue Component Tree
+# 1 app(s) detected
+
+## App: App
+  [0] App
+    [1] HelloWorld
+    [2] Counter
+```
+
+### Component Details
+```
+$ vite-browser vue tree 2
+# Component: Counter
+# UID: 2
+
+## Props
+  initialCount: 0
+
+## Setup State
+  count: 5
+  increment: [Function]
+
+## Source
+  /src/components/Counter.vue
+```
+
+### Pinia Store
+```
+$ vite-browser vue pinia counter
+# Pinia Store: counter
+
+## State
+  count: 42
+
+## Getters
+  doubleCount: 84
 ```
 
 ## Architecture
 
-Similar to `@vercel/next-browser`:
-- CLI + Daemon + Unix socket communication
-- Playwright with headed browser
-- Framework-specific DevTools integration
-- Vite dev server integration
+- **Daemon + Socket**: Background process with Unix socket communication
+- **Playwright**: Headed Chromium browser with DevTools protocol access
+- **One Browser, One Page**: Single persistent browser instance
+- **Auto-start**: Daemon starts automatically on first command
 
-## Development
+## Use Cases
 
-```bash
-# Install dependencies
-pnpm install
+- **AI Agents**: Programmatic debugging and inspection of Vite apps
+- **Automation**: Scripted testing and monitoring
+- **CI/CD**: Automated visual regression testing
+- **Documentation**: Generate component documentation from live apps
 
-# Run from source
-pnpm dev open http://localhost:5173
+## Requirements
 
-# Build
-pnpm build
+- Node.js 20+
+- Chromium (via Playwright)
+- Vite dev server running
+- Vue 3 (for Vue DevTools features)
 
-# Type check
-pnpm typecheck
-```
+## Documentation
 
-## Roadmap
-
-- [x] Basic architecture (CLI, daemon, browser)
-- [x] Framework detection
-- [x] Vite error/log capture
-- [ ] Vue DevTools integration (@vue/devtools-kit)
-- [ ] Vue component tree inspection
-- [ ] Pinia store inspection
-- [ ] Vue Router integration
-- [ ] React DevTools integration (from next-browser)
-- [ ] HMR monitoring
-- [ ] Vite server restart (requires plugin)
-- [ ] Documentation and examples
-- [ ] Tests
-
-## Comparison
-
-| Feature | next-browser | vite-browser |
-|---------|-------------|--------------|
-| Target | Next.js only | Vite (Vue/React/Svelte) |
-| DevTools | React DevTools | Vue + React DevTools |
-| Special | PPR analysis | HMR monitoring |
-| Server | Next.js dev server | Vite dev server |
+See [SKILL.md](./SKILL.md) for complete command reference and usage examples.
 
 ## License
 

@@ -5,7 +5,7 @@ CLI for programmatic access to Vue/React/Svelte DevTools in Vite applications. P
 ## Installation
 
 ```bash
-npm install -g vite-browser
+npm install -g @presto1314w/vite-devtools-browser
 npx playwright install chromium
 ```
 

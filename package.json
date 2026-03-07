@@ -1,5 +1,5 @@
 {
-  "name": "vite-browser",
+  "name": "@presto1314w/vite-devtools-browser",
   "version": "0.1.0",
   "description": "CLI for programmatic access to Vue/React DevTools in Vite applications",
   "license": "MIT",

@@ -2,6 +2,17 @@
 
 CLI for programmatic access to Vue/React/Svelte DevTools in Vite applications. Provides component trees, props, state, Pinia stores, Vue Router, console logs, and network requests as structured text output designed for AI agents and automation.
 
+## Skills
+
+```bash
+npx skills add MapleCity1314/vite-browser
+```
+
+## Links
+
+- GitHub: https://github.com/MapleCity1314/vite-browser
+- npm: https://www.npmjs.com/package/@presto1314w/vite-devtools-browser
+
 ## Installation
 
 ```bash

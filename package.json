@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "CLI for programmatic access to Vue/React DevTools in Vite applications",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MapleCity1314/vite-browser.git"
+  },
+  "homepage": "https://github.com/MapleCity1314/vite-browser#readme",
+  "bugs": {
+    "url": "https://github.com/MapleCity1314/vite-browser/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=20"

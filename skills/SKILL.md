@@ -1,12 +1,15 @@
 ---
 name: vite-browser
 description: >-
-  Agent skill for debugging Vite apps through the vite-browser CLI: framework
-  detection, Vue/React/Svelte component inspection, Pinia/Router info, logs,
-  errors, network tracing, screenshots, and page evaluation.
+  Agent skill for diagnosing Vite apps through a structured workflow: detect
+  framework, check errors/logs, inspect component trees and state, verify
+  network and visual output, then report concrete fixes.
 ---
 
 # vite-browser
+
+Use this skill when an AI agent needs to debug or inspect a running Vite app.
+The CLI is the execution layer; this document is the decision workflow.
 
 Install CLI:
 
@@ -15,21 +18,169 @@ npm install -g @presto1314w/vite-devtools-browser
 npx playwright install chromium
 ```
 
-Install this skill:
+Install skill:
 
 ```bash
 npx skills add MapleCity1314/vite-browser
 ```
 
-Daemon uses one browser and one page. Socket path is session-scoped:
-- Default session: `~/.vite-browser/default.sock` (or Windows pipe `\\.\\pipe\\vite-browser-default`)
-- Custom session: set `VITE_BROWSER_SESSION=<name>`
+---
+
+## Working model
+
+One daemon, one browser, one page per session.
+
+- Default socket: `~/.vite-browser/default.sock`
+- Windows default pipe: `\\.\\pipe\\vite-browser-default`
+- Isolated sessions: set `VITE_BROWSER_SESSION=<name>`
 
 ---
 
-## Commands
+## Agent protocol (always follow)
 
-### Browser control
+### 1) Open and baseline
+
+```bash
+vite-browser open <url>
+vite-browser detect
+```
+
+Immediately record framework and URL.
+
+### 2) Error-first gate
+
+Before any component analysis:
+
+```bash
+vite-browser errors
+vite-browser logs
+```
+
+If build/runtime errors exist, fix those first. Tree/state output is often misleading under compile/runtime failure.
+
+### 3) Choose framework path
+
+- Vue issue -> Vue workflow
+- React issue -> React workflow
+- Svelte issue -> Svelte workflow
+- Unknown framework -> use `eval`, `network`, `screenshot`, and logs/errors
+
+### 4) Validate behavior
+
+For data/API/UI bugs:
+
+```bash
+vite-browser network
+vite-browser network <idx>
+vite-browser screenshot
+```
+
+### 5) Report with evidence
+
+In your final response, include:
+- what command(s) confirmed the issue
+- concrete failing signal (error/log/request/component state)
+- minimal fix hypothesis
+- what to re-run to verify
+
+---
+
+## Vue workflow
+
+### Discover and inspect components
+
+```bash
+vite-browser vue tree
+vite-browser vue tree <id>
+```
+
+Use `vue tree` to locate target component IDs, then inspect props/data/setup/computed/source.
+
+### Check global state and routing
+
+```bash
+vite-browser vue pinia
+vite-browser vue pinia <store>
+vite-browser vue router
+```
+
+Use this when symptom is stale state, wrong derived values, or incorrect route params/query.
+
+---
+
+## React workflow
+
+### Build tree snapshot
+
+```bash
+vite-browser react tree
+vite-browser react tree <id>
+```
+
+Use `react tree` first, then `react tree <id>` for props/hooks/state/context/source.
+
+Notes:
+- IDs are only reliable until navigation/reload.
+- Re-run `react tree` after page transitions.
+
+---
+
+## Svelte workflow
+
+```bash
+vite-browser svelte tree
+vite-browser svelte tree <id>
+```
+
+Svelte inspection is best-effort. If output is sparse:
+- rely on `errors`/`logs`
+- use `network` to verify data path
+- use `eval` for targeted runtime checks
+
+---
+
+## Cross-framework debugging playbooks
+
+### API/data mismatch
+
+```bash
+vite-browser network
+vite-browser network <idx>
+```
+
+Confirm request URL/method/status, then inspect headers/body.
+
+### Visual regression or "looks wrong"
+
+```bash
+vite-browser screenshot
+```
+
+Capture current UI state before and after a suspected action.
+
+### Runtime probes
+
+```bash
+vite-browser eval '<script>'
+```
+
+Use for one-off checks not covered by built-ins (window globals, DOM snapshots, local storage state).
+
+### Navigation reset
+
+```bash
+vite-browser goto <url>
+vite-browser reload
+vite-browser back
+```
+
+After navigation, regenerate component trees before reusing IDs.
+
+---
+
+## Command reference (quick)
+
+### Browser
 
 ```bash
 vite-browser open <url> [--cookies-json <file>]
@@ -39,50 +190,31 @@ vite-browser back
 vite-browser reload
 ```
 
-`open --cookies-json` expects:
-
-```json
-[{"name":"token","value":"abc123"}]
-```
-
-### Framework detection
+### Detection
 
 ```bash
 vite-browser detect
 ```
 
-Returns `vue@x`, `react@y`, `svelte@z`, or `unknown`.
-
 ### Vue
 
 ```bash
-vite-browser vue tree
-vite-browser vue tree <id>
-vite-browser vue pinia
-vite-browser vue pinia <store>
+vite-browser vue tree [id]
+vite-browser vue pinia [store]
 vite-browser vue router
 ```
-
-`vue tree <id>` shows props/data/setup/computed/source when available.
 
 ### React
 
 ```bash
-vite-browser react tree
-vite-browser react tree <id>
+vite-browser react tree [id]
 ```
-
-- `react tree` returns the component tree from React DevTools bridge operations.
-- `react tree <id>` inspects props/hooks/state/context and source (if exposed).
 
 ### Svelte
 
 ```bash
-vite-browser svelte tree
-vite-browser svelte tree <id>
+vite-browser svelte tree [id]
 ```
-
-Best-effort runtime inspection. Availability depends on what the app exposes.
 
 ### Vite diagnostics
 
@@ -93,67 +225,22 @@ vite-browser errors
 vite-browser logs
 ```
 
-Notes:
-- `vite restart` requires an app endpoint at `/__vite_restart`.
-- `errors` reads Vite error overlay from the page.
-
 ### Utilities
 
 ```bash
 vite-browser screenshot
 vite-browser eval <script>
-vite-browser network
-vite-browser network <idx>
-```
-
-- `network` lists requests since last document navigation.
-- `network <idx>` includes request/response headers, bodies, and timing when available.
-
----
-
-## Typical workflow
-
-```bash
-vite-browser open http://localhost:5173
-vite-browser detect
-vite-browser errors
-vite-browser logs
-vite-browser network
-vite-browser vue tree
-```
-
-For React:
-
-```bash
-vite-browser react tree
-vite-browser react tree <id>
-```
-
-For Svelte:
-
-```bash
-vite-browser svelte tree
-vite-browser svelte tree <id>
+vite-browser network [idx]
 ```
 
 ---
 
-## Practical guidance for agents
+## Known limits
 
-- Check `errors` and `logs` first before deep inspection.
-- Re-run `vue tree` and `react tree` after navigation/reload; IDs are not stable across page reloads.
-- Use `eval` for app-specific checks not covered by built-ins.
-- Use `screenshot` when visual state matters.
-- Use `network <idx>` to inspect failed API calls.
-
----
-
-## Current limitations
-
-- React inspection depends on React DevTools hook availability in the page context.
-- Svelte inspection is heuristic and may be partial on some builds/apps.
-- Vue router and Pinia commands require those integrations to be present in the app.
-- `vite restart` only works if the target app implements `/__vite_restart`.
+- React inspection needs React DevTools hook/renderer availability.
+- Svelte introspection depends on runtime metadata exposure.
+- Vue router/pinia commands require those integrations to exist in the app.
+- `vite restart` works only if app provides `/__vite_restart` endpoint.
 
 ---
 
@@ -161,21 +248,20 @@ vite-browser svelte tree <id>
 
 ### Cannot connect to daemon
 
-Clean stale session files and retry:
-
 ```bash
-# Windows (default session)
+# Windows
 del %USERPROFILE%\.vite-browser\default.pid
 
-# macOS/Linux (default session)
+# macOS/Linux
 rm ~/.vite-browser/default.pid ~/.vite-browser/default.sock
 ```
 
-### React tree returns hook/renderer errors
+### Tree inspection fails after page changes
 
-- Ensure React app is loaded and not crashed.
-- Reload page and run `react tree` again.
+Re-open tree snapshot after navigation/reload:
 
-### Empty Svelte output
-
-The app may not expose enough runtime metadata. Use `eval` plus logs/network as fallback.
+```bash
+vite-browser vue tree
+vite-browser react tree
+vite-browser svelte tree
+```

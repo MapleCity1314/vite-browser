@@ -1,43 +1,42 @@
-/**
- * Browser manager — single headed Chromium instance with Vue/React DevTools.
- *
- * Launches via Playwright with DevTools extensions pre-loaded.
- * Supports Vue, React, and other Vite-based frameworks.
- */
-
-import { chromium, type BrowserContext, type Page } from "playwright";
+import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { chromium, type BrowserContext, type Page } from "playwright";
 import * as vueDevtools from "./vue/devtools.js";
+import * as reactDevtools from "./react/devtools.js";
+import * as svelteDevtools from "./svelte/devtools.js";
+import * as networkLog from "./network.js";
+
+const extensionPath =
+  process.env.REACT_DEVTOOLS_EXTENSION ??
+  resolve(import.meta.dirname, "../../next-browser/extensions/react-devtools-chrome");
+
+const hasReactExtension = existsSync(join(extensionPath, "manifest.json"));
+const installHook = hasReactExtension
+  ? readFileSync(join(extensionPath, "build", "installHook.js"), "utf-8")
+  : null;
 
 let context: BrowserContext | null = null;
 let page: Page | null = null;
 let framework: "vue" | "react" | "svelte" | "unknown" = "unknown";
 
-// Console logs buffer
 const consoleLogs: string[] = [];
-const MAX_LOGS = 100;
-
-// Network requests buffer
-interface NetworkRequest {
-  url: string;
-  method: string;
-  status?: number;
-  timestamp: number;
-}
-const networkRequests: NetworkRequest[] = [];
-const MAX_REQUESTS = 50;
-
-// ── Browser lifecycle ────────────────────────────────────────────────────────
+const MAX_LOGS = 200;
+let lastReactSnapshot: reactDevtools.ReactNode[] = [];
 
 export async function open(url: string | undefined) {
   if (!context) {
     context = await launch();
     page = context.pages()[0] ?? (await context.newPage());
     attachListeners(page);
+    networkLog.attach(page);
   }
+
+  const currentPage = page;
+  if (!currentPage) throw new Error("browser not open");
+
   if (url) {
-    await page!.goto(url, { waitUntil: "domcontentloaded" });
+    await currentPage.goto(url, { waitUntil: "domcontentloaded" });
     await detectFramework();
   }
 }
@@ -56,41 +55,40 @@ export async function close() {
   page = null;
   framework = "unknown";
   consoleLogs.length = 0;
-  networkRequests.length = 0;
+  networkLog.clear();
+  lastReactSnapshot = [];
 }
 
 async function launch(): Promise<BrowserContext> {
+  if (hasReactExtension && installHook) {
+    const ctx = await chromium.launchPersistentContext("", {
+      headless: false,
+      viewport: { width: 1280, height: 720 },
+      args: [
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`,
+        "--auto-open-devtools-for-tabs",
+      ],
+    });
+    await ctx.waitForEvent("serviceworker").catch(() => {});
+    await ctx.addInitScript(installHook);
+    return ctx;
+  }
+
   const browser = await chromium.launch({
     headless: false,
     args: ["--auto-open-devtools-for-tabs"],
   });
-  return await browser.newContext({
-    viewport: { width: 1280, height: 720 },
-  });
+  return browser.newContext({ viewport: { width: 1280, height: 720 } });
 }
 
-function attachListeners(page: Page) {
-  // Console logs
-  page.on("console", (msg) => {
+function attachListeners(currentPage: Page) {
+  currentPage.on("console", (msg) => {
     const text = `[${msg.type()}] ${msg.text()}`;
     consoleLogs.push(text);
     if (consoleLogs.length > MAX_LOGS) consoleLogs.shift();
   });
-
-  // Network requests
-  page.on("response", (response) => {
-    const req = response.request();
-    networkRequests.push({
-      url: req.url(),
-      method: req.method(),
-      status: response.status(),
-      timestamp: Date.now(),
-    });
-    if (networkRequests.length > MAX_REQUESTS) networkRequests.shift();
-  });
 }
-
-// ── Navigation ───────────────────────────────────────────────────────────────
 
 export async function goto(url: string) {
   if (!page) throw new Error("browser not open");
@@ -101,88 +99,105 @@ export async function goto(url: string) {
 
 export async function back() {
   if (!page) throw new Error("browser not open");
-  await page.goBack();
+  await page.goBack({ waitUntil: "domcontentloaded" });
 }
 
 export async function reload() {
   if (!page) throw new Error("browser not open");
-  await page.reload();
+  await page.reload({ waitUntil: "domcontentloaded" });
   return page.url();
 }
-
-// ── Framework detection ──────────────────────────────────────────────────────
 
 export async function detectFramework(): Promise<string> {
   if (!page) throw new Error("browser not open");
 
   const detected = await page.evaluate(() => {
-    // Check for Vue
     if ((window as any).__VUE__ || (window as any).__VUE_DEVTOOLS_GLOBAL_HOOK__) {
-      const vueVersion = (window as any).__VUE__?.version || "unknown";
-      return `vue@${vueVersion}`;
+      const version = (window as any).__VUE__?.version || "unknown";
+      return `vue@${version}`;
     }
-    // Check for React
-    if ((window as any).React || document.querySelector("[data-reactroot]")) {
-      const reactVersion = (window as any).React?.version || "unknown";
-      return `react@${reactVersion}`;
+
+    const reactHook = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    if (reactHook || (window as any).React || document.querySelector("[data-reactroot]")) {
+      const renderers = reactHook?.renderers;
+      const firstRenderer = renderers ? renderers.values().next().value : null;
+      const version = firstRenderer?.version || (window as any).React?.version || "unknown";
+      return `react@${version}`;
     }
-    // Check for Svelte
-    if ((window as any).__SVELTE__) {
-      return "svelte";
+
+    if (
+      (window as any).__SVELTE__ ||
+      (window as any).__svelte ||
+      (window as any).__SVELTE_DEVTOOLS_GLOBAL_HOOK__
+    ) {
+      const version =
+        (window as any).__SVELTE__?.VERSION ||
+        (window as any).__svelte?.version ||
+        "unknown";
+      return `svelte@${version}`;
     }
+
     return "unknown";
   });
 
-  // Update framework state based on detection
   if (detected.startsWith("vue")) framework = "vue";
   else if (detected.startsWith("react")) framework = "react";
-  else if (detected === "svelte") framework = "svelte";
+  else if (detected.startsWith("svelte")) framework = "svelte";
   else framework = "unknown";
 
   return detected;
 }
 
-// ── Vue commands ─────────────────────────────────────────────────────────────
-
 export async function vueTree(id?: string): Promise<string> {
   if (!page) throw new Error("browser not open");
-
-  if (id) {
-    return await vueDevtools.getComponentDetails(page, id);
-  } else {
-    return await vueDevtools.getComponentTree(page);
-  }
+  return id ? vueDevtools.getComponentDetails(page, id) : vueDevtools.getComponentTree(page);
 }
 
 export async function vuePinia(store?: string): Promise<string> {
   if (!page) throw new Error("browser not open");
-
-  return await vueDevtools.getPiniaStores(page, store);
+  return vueDevtools.getPiniaStores(page, store);
 }
 
 export async function vueRouter(): Promise<string> {
   if (!page) throw new Error("browser not open");
-
-  return await vueDevtools.getRouterInfo(page);
+  return vueDevtools.getRouterInfo(page);
 }
-
-// ── React commands ───────────────────────────────────────────────────────────
 
 export async function reactTree(id?: string): Promise<string> {
   if (!page) throw new Error("browser not open");
 
-  // TODO: Implement React component tree (copy from next-browser)
-  return "React component tree - TODO";
+  if (!id) {
+    lastReactSnapshot = await reactDevtools.snapshot(page);
+    return reactDevtools.format(lastReactSnapshot);
+  }
+
+  const parsed = Number.parseInt(id, 10);
+  if (!Number.isFinite(parsed)) throw new Error("react component id must be a number");
+
+  const inspected = await reactDevtools.inspect(page, parsed);
+  const lines: string[] = [];
+
+  const componentPath = reactDevtools.path(lastReactSnapshot, parsed);
+  if (componentPath) lines.push(`path: ${componentPath}`);
+
+  lines.push(inspected.text);
+  if (inspected.source) {
+    const [file, line, column] = inspected.source;
+    lines.push(`source: ${file}:${line}:${column}`);
+  }
+
+  return lines.join("\n");
 }
 
-// ── Vite commands ────────────────────────────────────────────────────────────
+export async function svelteTree(id?: string): Promise<string> {
+  if (!page) throw new Error("browser not open");
+  return id ? svelteDevtools.getComponentDetails(page, id) : svelteDevtools.getComponentTree(page);
+}
 
 export async function viteRestart(): Promise<string> {
   if (!page) throw new Error("browser not open");
 
-  // Try to restart Vite dev server
-  // This requires a Vite plugin to expose a restart endpoint
-  const result = await page.evaluate(async () => {
+  return page.evaluate(async () => {
     try {
       const response = await fetch("/__vite_restart", { method: "POST" });
       return response.ok ? "restarted" : "restart endpoint not available";
@@ -190,24 +205,20 @@ export async function viteRestart(): Promise<string> {
       return "restart endpoint not available (install vite-browser plugin)";
     }
   });
-
-  return result;
 }
 
 export async function viteHMR(): Promise<string> {
   if (!page) throw new Error("browser not open");
 
-  const hmrStatus = await page.evaluate(() => {
-    const hmr = (window as any).__vite_hmr_updates || [];
-    if (hmr.length === 0) return "No HMR updates";
+  return page.evaluate(() => {
+    const updates = (window as any).__vite_hmr_updates || [];
+    if (updates.length === 0) return "No HMR updates";
 
-    return hmr
-      .slice(-10)
+    return updates
+      .slice(-20)
       .map((u: any) => `${new Date(u.timestamp).toLocaleTimeString()} - ${u.path}`)
       .join("\n");
   });
-
-  return hmrStatus;
 }
 
 export async function errors(): Promise<string> {
@@ -217,23 +228,20 @@ export async function errors(): Promise<string> {
     const overlay = document.querySelector("vite-error-overlay");
     if (!overlay || !overlay.shadowRoot) return null;
 
-    const message = overlay.shadowRoot.querySelector(".message")?.textContent;
-    const stack = overlay.shadowRoot.querySelector(".stack")?.textContent;
+    const message = overlay.shadowRoot.querySelector(".message")?.textContent?.trim();
+    const stack = overlay.shadowRoot.querySelector(".stack")?.textContent?.trim();
 
     return { message, stack };
   });
 
   if (!errorInfo) return "no errors";
-
-  return `${errorInfo.message}\n\n${errorInfo.stack}`;
+  return `${errorInfo.message ?? "Vite error"}\n\n${errorInfo.stack ?? ""}`.trim();
 }
 
 export async function logs(): Promise<string> {
   if (consoleLogs.length === 0) return "no logs";
-  return consoleLogs.slice(-20).join("\n");
+  return consoleLogs.slice(-50).join("\n");
 }
-
-// ── Utilities ────────────────────────────────────────────────────────────────
 
 export async function screenshot(): Promise<string> {
   if (!page) throw new Error("browser not open");
@@ -249,15 +257,6 @@ export async function evaluate(script: string): Promise<string> {
 }
 
 export async function network(idx?: number): Promise<string> {
-  if (idx !== undefined) {
-    const req = networkRequests[idx];
-    if (!req) return "request not found";
-    return JSON.stringify(req, null, 2);
-  }
-
-  if (networkRequests.length === 0) return "no network requests";
-
-  return networkRequests
-    .map((req, i) => `[${i}] ${req.method} ${req.url} (${req.status})`)
-    .join("\n");
+  if (idx == null) return networkLog.format();
+  return networkLog.detail(idx);
 }

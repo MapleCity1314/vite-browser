@@ -11,8 +11,6 @@ if (cmd === "--help" || cmd === "-h" || !cmd) {
   process.exit(0);
 }
 
-// ── Browser control ──────────────────────────────────────────────────────────
-
 if (cmd === "open") {
   if (!arg) {
     console.error("usage: vite-browser open <url> [--cookies-json <file>]");
@@ -30,11 +28,11 @@ if (cmd === "open") {
     const cRes = await send("cookies", { cookies, domain });
     if (!cRes.ok) exit(cRes, "");
     await send("goto", { url: arg });
-    exit(res, `opened → ${arg} (${cookies.length} cookies for ${domain})`);
+    exit(res, `opened -> ${arg} (${cookies.length} cookies for ${domain})`);
   }
 
   const res = await send("open", { url: arg });
-  exit(res, `opened → ${arg}`);
+  exit(res, `opened -> ${arg}`);
 }
 
 if (cmd === "close") {
@@ -48,27 +46,23 @@ if (cmd === "goto") {
     process.exit(1);
   }
   const res = await send("goto", { url: arg });
-  exit(res, res.ok ? `→ ${res.data}` : "");
+  exit(res, res.ok ? `-> ${res.data}` : "");
 }
 
 if (cmd === "back") {
   const res = await send("back");
-  exit(res, "←");
+  exit(res, "back");
 }
 
 if (cmd === "reload") {
   const res = await send("reload");
-  exit(res, res.ok ? `reloaded → ${res.data}` : "");
+  exit(res, res.ok ? `reloaded -> ${res.data}` : "");
 }
-
-// ── Framework detection ──────────────────────────────────────────────────────
 
 if (cmd === "detect") {
   const res = await send("detect");
   exit(res, res.ok && res.data ? String(res.data) : "");
 }
-
-// ── Vue commands ─────────────────────────────────────────────────────────────
 
 if (cmd === "vue" && arg === "tree") {
   const id = args[2];
@@ -87,15 +81,17 @@ if (cmd === "vue" && arg === "router") {
   exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
-// ── React commands ───────────────────────────────────────────────────────────
-
 if (cmd === "react" && arg === "tree") {
   const id = args[2];
   const res = await send("react-tree", { id });
   exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
-// ── Vite commands ────────────────────────────────────────────────────────────
+if (cmd === "svelte" && arg === "tree") {
+  const id = args[2];
+  const res = await send("svelte-tree", { id });
+  exit(res, res.ok && res.data ? String(res.data) : "");
+}
 
 if (cmd === "vite" && arg === "restart") {
   const res = await send("vite-restart");
@@ -116,8 +112,6 @@ if (cmd === "logs") {
   const res = await send("logs");
   exit(res, res.ok && res.data ? String(res.data) : "");
 }
-
-// ── Utilities ────────────────────────────────────────────────────────────────
 
 if (cmd === "screenshot") {
   const res = await send("screenshot");
@@ -142,8 +136,6 @@ if (cmd === "network") {
 console.error(`unknown command: ${cmd}`);
 process.exit(1);
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 function exit(res: { ok: boolean; error?: string }, msg: string) {
   if (!res.ok) {
     console.error(res.error || "error");
@@ -155,7 +147,7 @@ function exit(res: { ok: boolean; error?: string }, msg: string) {
 
 function printUsage() {
   console.log(`
-vite-browser - Programmatic access to Vue/React DevTools and Vite dev server
+vite-browser - Programmatic access to Vue/React/Svelte DevTools and Vite dev server
 
 USAGE
   vite-browser <command> [options]
@@ -177,6 +169,9 @@ VUE COMMANDS
 
 REACT COMMANDS
   react tree [id]                     Show React component tree or inspect component
+
+SVELTE COMMANDS
+  svelte tree [id]                    Show Svelte component tree or inspect component
 
 VITE COMMANDS
   vite restart                        Restart Vite dev server

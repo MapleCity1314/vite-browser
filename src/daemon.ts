@@ -107,6 +107,12 @@ async function run(cmd: Cmd) {
     return { ok: true, data };
   }
 
+  // Svelte commands
+  if (cmd.action === "svelte-tree") {
+    const data = await browser.svelteTree(cmd.id);
+    return { ok: true, data };
+  }
+
   // Vite commands
   if (cmd.action === "vite-restart") {
     const data = await browser.viteRestart();

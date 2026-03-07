@@ -46,7 +46,7 @@ function daemonAlive() {
     return true;
   } catch {
     rmSync(pidFile, { force: true });
-    rmSync(socketPath, { force: true });
+    removeSocketFile();
     return false;
   }
 }
@@ -78,4 +78,9 @@ function ok(s: Socket) {
 
 function no() {
   return false;
+}
+
+function removeSocketFile() {
+  if (process.platform === "win32") return;
+  rmSync(socketPath, { force: true });
 }

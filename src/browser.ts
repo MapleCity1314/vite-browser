@@ -25,15 +25,7 @@ const MAX_LOGS = 200;
 let lastReactSnapshot: reactDevtools.ReactNode[] = [];
 
 export async function open(url: string | undefined) {
-  if (!context) {
-    context = await launch();
-    page = context.pages()[0] ?? (await context.newPage());
-    attachListeners(page);
-    networkLog.attach(page);
-  }
-
-  const currentPage = page;
-  if (!currentPage) throw new Error("browser not open");
+  const currentPage = await ensurePage();
 
   if (url) {
     await currentPage.goto(url, { waitUntil: "domcontentloaded" });
@@ -57,6 +49,33 @@ export async function close() {
   consoleLogs.length = 0;
   networkLog.clear();
   lastReactSnapshot = [];
+}
+
+async function ensurePage(): Promise<Page> {
+  if (!contextUsable(context)) {
+    await close();
+    context = await launch();
+  }
+
+  if (!context) throw new Error("browser not open");
+
+  if (!page || page.isClosed()) {
+    page = context.pages()[0] ?? (await context.newPage());
+    attachListeners(page);
+    networkLog.attach(page);
+  }
+
+  return page;
+}
+
+function contextUsable(current: BrowserContext | null): current is BrowserContext {
+  if (!current) return false;
+  try {
+    current.pages();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function launch(): Promise<BrowserContext> {
@@ -91,21 +110,21 @@ function attachListeners(currentPage: Page) {
 }
 
 export async function goto(url: string) {
-  if (!page) throw new Error("browser not open");
-  await page.goto(url, { waitUntil: "domcontentloaded" });
+  const currentPage = await ensurePage();
+  await currentPage.goto(url, { waitUntil: "domcontentloaded" });
   await detectFramework();
-  return page.url();
+  return currentPage.url();
 }
 
 export async function back() {
-  if (!page) throw new Error("browser not open");
-  await page.goBack({ waitUntil: "domcontentloaded" });
+  const currentPage = await ensurePage();
+  await currentPage.goBack({ waitUntil: "domcontentloaded" });
 }
 
 export async function reload() {
-  if (!page) throw new Error("browser not open");
-  await page.reload({ waitUntil: "domcontentloaded" });
-  return page.url();
+  const currentPage = await ensurePage();
+  await currentPage.reload({ waitUntil: "domcontentloaded" });
+  return currentPage.url();
 }
 
 export async function detectFramework(): Promise<string> {

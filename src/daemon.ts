@@ -5,7 +5,7 @@ import * as browser from "./browser.js";
 import { socketDir, socketPath, pidFile } from "./paths.js";
 
 mkdirSync(socketDir, { recursive: true, mode: 0o700 });
-rmSync(socketPath, { force: true });
+removeSocketFile();
 rmSync(pidFile, { force: true });
 
 writeFileSync(pidFile, String(process.pid));
@@ -154,6 +154,12 @@ function shutdown() {
 }
 
 function cleanup() {
-  rmSync(socketPath, { force: true });
+  removeSocketFile();
   rmSync(pidFile, { force: true });
+}
+
+function removeSocketFile() {
+  // Windows named pipes are not filesystem entries, so unlinking them fails with EPERM.
+  if (process.platform === "win32") return;
+  rmSync(socketPath, { force: true });
 }

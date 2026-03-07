@@ -16,6 +16,7 @@ if (cmd === "open") {
     console.error("usage: vite-browser open <url> [--cookies-json <file>]");
     process.exit(1);
   }
+  const url = normalizeUrl(arg);
   const cookieIdx = args.indexOf("--cookies-json");
   const cookieFile = cookieIdx >= 0 ? args[cookieIdx + 1] : undefined;
 
@@ -24,15 +25,15 @@ if (cmd === "open") {
     if (!res.ok) exit(res, "");
     const raw = readFileSync(cookieFile, "utf-8");
     const cookies = JSON.parse(raw);
-    const domain = new URL(arg).hostname;
+    const domain = new URL(url).hostname;
     const cRes = await send("cookies", { cookies, domain });
     if (!cRes.ok) exit(cRes, "");
-    await send("goto", { url: arg });
-    exit(res, `opened -> ${arg} (${cookies.length} cookies for ${domain})`);
+    await send("goto", { url });
+    exit(res, `opened -> ${url} (${cookies.length} cookies for ${domain})`);
   }
 
-  const res = await send("open", { url: arg });
-  exit(res, `opened -> ${arg}`);
+  const res = await send("open", { url });
+  exit(res, `opened -> ${url}`);
 }
 
 if (cmd === "close") {
@@ -45,7 +46,7 @@ if (cmd === "goto") {
     console.error("usage: vite-browser goto <url>");
     process.exit(1);
   }
-  const res = await send("goto", { url: arg });
+  const res = await send("goto", { url: normalizeUrl(arg) });
   exit(res, res.ok ? `-> ${res.data}` : "");
 }
 
@@ -187,4 +188,9 @@ UTILITIES
 OPTIONS
   -h, --help                          Show this help message
 `);
+}
+
+function normalizeUrl(value: string): string {
+  if (value.includes("://")) return value;
+  return `http://${value}`;
 }

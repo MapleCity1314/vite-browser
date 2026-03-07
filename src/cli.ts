@@ -65,7 +65,7 @@ if (cmd === "reload") {
 
 if (cmd === "detect") {
   const res = await send("detect");
-  exit(res, res.data || "");
+  exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
 // ── Vue commands ─────────────────────────────────────────────────────────────
@@ -73,18 +73,18 @@ if (cmd === "detect") {
 if (cmd === "vue" && arg === "tree") {
   const id = args[2];
   const res = await send("vue-tree", { id });
-  exit(res, res.data || "");
+  exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
 if (cmd === "vue" && arg === "pinia") {
   const store = args[2];
   const res = await send("vue-pinia", { store });
-  exit(res, res.data || "");
+  exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
 if (cmd === "vue" && arg === "router") {
   const res = await send("vue-router");
-  exit(res, res.data || "");
+  exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
 // ── React commands ───────────────────────────────────────────────────────────
@@ -92,36 +92,36 @@ if (cmd === "vue" && arg === "router") {
 if (cmd === "react" && arg === "tree") {
   const id = args[2];
   const res = await send("react-tree", { id });
-  exit(res, res.data || "");
+  exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
 // ── Vite commands ────────────────────────────────────────────────────────────
 
 if (cmd === "vite" && arg === "restart") {
   const res = await send("vite-restart");
-  exit(res, res.data || "restarted");
+  exit(res, res.ok && res.data ? String(res.data) : "restarted");
 }
 
 if (cmd === "vite" && arg === "hmr") {
   const res = await send("vite-hmr");
-  exit(res, res.data || "");
+  exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
 if (cmd === "errors") {
   const res = await send("errors");
-  exit(res, res.data || "no errors");
+  exit(res, res.ok && res.data ? String(res.data) : "no errors");
 }
 
 if (cmd === "logs") {
   const res = await send("logs");
-  exit(res, res.data || "");
+  exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
 // ── Utilities ────────────────────────────────────────────────────────────────
 
 if (cmd === "screenshot") {
   const res = await send("screenshot");
-  exit(res, res.data || "");
+  exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
 if (cmd === "eval") {
@@ -130,13 +130,13 @@ if (cmd === "eval") {
     process.exit(1);
   }
   const res = await send("eval", { script: arg });
-  exit(res, res.data || "");
+  exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
 if (cmd === "network") {
   const idx = arg ? parseInt(arg, 10) : undefined;
   const res = await send("network", { idx });
-  exit(res, res.data || "");
+  exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
 console.error(`unknown command: ${cmd}`);

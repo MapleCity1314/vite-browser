@@ -8,6 +8,7 @@
 import { chromium, type BrowserContext, type Page } from "playwright";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as vueDevtools from "./vue/devtools.js";
 
 let context: BrowserContext | null = null;
 let page: Page | null = null;
@@ -146,33 +147,23 @@ export async function detectFramework(): Promise<string> {
 export async function vueTree(id?: string): Promise<string> {
   if (!page) throw new Error("browser not open");
 
-  // TODO: Implement Vue component tree using @vue/devtools-kit
-  return "Vue component tree - TODO";
+  if (id) {
+    return await vueDevtools.getComponentDetails(page, id);
+  } else {
+    return await vueDevtools.getComponentTree(page);
+  }
 }
 
 export async function vuePinia(store?: string): Promise<string> {
   if (!page) throw new Error("browser not open");
 
-  // TODO: Implement Pinia store inspection
-  return "Pinia stores - TODO";
+  return await vueDevtools.getPiniaStores(page, store);
 }
 
 export async function vueRouter(): Promise<string> {
   if (!page) throw new Error("browser not open");
 
-  const routerInfo = await page.evaluate(() => {
-    const router = (window as any).$router || (window as any).__VUE_ROUTER__;
-    if (!router) return null;
-
-    return {
-      currentRoute: router.currentRoute?.value?.path || router.currentRoute?.path,
-      routes: router.getRoutes?.().map((r: any) => r.path) || [],
-    };
-  });
-
-  if (!routerInfo) return "Vue Router not found";
-
-  return `Current route: ${routerInfo.currentRoute}\nRoutes: ${routerInfo.routes.join(", ")}`;
+  return await vueDevtools.getRouterInfo(page);
 }
 
 // ── React commands ───────────────────────────────────────────────────────────

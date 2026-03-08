@@ -4,7 +4,7 @@
 - Agent Skill: scenario-based debugging workflows for coding assistants
 - CLI Runtime (`@presto1314w/vite-devtools-browser`): structured inspection of Vue/React/Svelte runtime state
 
-Current documented baseline: `v0.1.3`.
+Current documented baseline: `v0.1.4`.
 
 ## Install
 

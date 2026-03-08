@@ -14,6 +14,232 @@ export interface VueComponent {
   line?: number;
 }
 
+export function formatComponentTree(apps: any[]): string {
+  if (apps.length === 0) return "No Vue apps found";
+
+  const output: string[] = [];
+  output.push("# Vue Component Tree");
+  output.push(`# ${apps.length} app(s) detected\n`);
+
+  apps.forEach((app: any, appIndex: number) => {
+    const appName =
+      app._component?.name || app.config?.globalProperties?.$options?.name || `App ${appIndex}`;
+    output.push(`## App: ${appName}`);
+
+    const rootInstance = app._instance || app._container?._vnode?.component;
+    if (!rootInstance) {
+      output.push("  (no root instance)");
+      return;
+    }
+
+    const seen = new WeakSet<object>();
+    const visit = (instance: any, depth = 0) => {
+      if (!instance || typeof instance !== "object") return;
+      if (seen.has(instance)) return;
+      seen.add(instance);
+
+      const indent = "  ".repeat(depth);
+      const name = instance.type?.name || instance.type?.__name || "Anonymous";
+      const uid = instance.uid ?? "?";
+      output.push(`${indent}[${uid}] ${name}`);
+
+      const subTree = instance.subTree;
+      if (subTree?.component) visit(subTree.component, depth + 1);
+      if (Array.isArray(subTree?.children)) {
+        subTree.children.forEach((child: any) => {
+          if (child?.component) visit(child.component, depth + 1);
+        });
+      }
+      if (Array.isArray(instance.children)) {
+        instance.children.forEach((child: any) => visit(child, depth + 1));
+      }
+    };
+
+    visit(rootInstance, 1);
+    output.push("");
+  });
+
+  return output.join("\n");
+}
+
+export function formatComponentDetails(targetInstance: any, componentId: string): string {
+  if (!targetInstance) return `Component ${componentId} not found`;
+
+  const output: string[] = [];
+  const name = targetInstance.type?.name || targetInstance.type?.__name || "Anonymous";
+
+  output.push(`# Component: ${name}`);
+  output.push(`# UID: ${targetInstance.uid}\n`);
+
+  if (targetInstance.props && Object.keys(targetInstance.props).length > 0) {
+    output.push("## Props");
+    for (const [key, value] of Object.entries(targetInstance.props)) {
+      output.push(`  ${key}: ${JSON.stringify(value)}`);
+    }
+    output.push("");
+  }
+
+  if (targetInstance.data && Object.keys(targetInstance.data).length > 0) {
+    output.push("## Data");
+    for (const [key, value] of Object.entries(targetInstance.data)) {
+      output.push(`  ${key}: ${JSON.stringify(value)}`);
+    }
+    output.push("");
+  }
+
+  const setupState = targetInstance.setupState || targetInstance.devtoolsRawSetupState;
+  if (setupState && Object.keys(setupState).length > 0) {
+    output.push("## Setup State");
+    for (const [key, value] of Object.entries(setupState)) {
+      output.push(`  ${key}: ${typeof value === "function" ? "[Function]" : JSON.stringify(value)}`);
+    }
+    output.push("");
+  }
+
+  const computed = targetInstance.type?.computed;
+  if (computed && Object.keys(computed).length > 0) {
+    output.push("## Computed");
+    for (const key of Object.keys(computed)) {
+      try {
+        const value = targetInstance.proxy?.[key];
+        output.push(`  ${key}: ${JSON.stringify(value)}`);
+      } catch {
+        output.push(`  ${key}: [Error]`);
+      }
+    }
+    output.push("");
+  }
+
+  const file = targetInstance.type?.__file;
+  if (file) {
+    output.push("## Source");
+    output.push(`  ${file}`);
+  }
+
+  return output.join("\n");
+}
+
+export function formatPiniaStores(
+  pinia: any,
+  storeName?: string,
+  piniaFromWindow = true,
+): string {
+  if (!pinia && piniaFromWindow) return "Pinia not found";
+
+  const safeJson = (value: unknown): string => {
+    if (typeof value === "function") return "[Function]";
+    if (typeof value === "bigint") return value.toString();
+    const seen = new WeakSet<object>();
+    try {
+      return JSON.stringify(value, (_, v) => {
+        if (typeof v === "function") return "[Function]";
+        if (typeof v === "bigint") return v.toString();
+        if (v && typeof v === "object") {
+          if (seen.has(v as object)) return "[Circular]";
+          seen.add(v as object);
+        }
+        return v;
+      });
+    } catch {
+      return String(value);
+    }
+  };
+
+  const storesById: Record<string, any> = {};
+  const registry = pinia?._s;
+  if (registry instanceof Map) {
+    registry.forEach((store, id) => {
+      storesById[String(id)] = store;
+    });
+  } else if (registry && typeof registry === "object") {
+    for (const [id, store] of Object.entries(registry)) {
+      storesById[id] = store;
+    }
+  }
+
+  const stateById =
+    pinia?.state?.value && typeof pinia.state.value === "object" ? pinia.state.value : {};
+  const storeKeys = Array.from(new Set([...Object.keys(storesById), ...Object.keys(stateById)]));
+
+  if (storeKeys.length === 0) return "No Pinia stores found";
+
+  const output: string[] = [];
+  if (!storeName) {
+    output.push("# Pinia Stores\n");
+    storeKeys.forEach((key) => output.push(`- ${key}`));
+    output.push("\nUse 'vite-browser vue pinia <store-name>' to inspect a specific store");
+    return output.join("\n");
+  }
+
+  const store = storesById[storeName] ?? null;
+  const stateOnly = (stateById as Record<string, unknown>)[storeName];
+  if (!store && !stateOnly) return `Store '${storeName}' not found`;
+
+  output.push(`# Pinia Store: ${storeName}\n`);
+
+  const state = store?.$state || store?.state || stateOnly || store;
+  if (state && typeof state === "object") {
+    output.push("## State");
+    for (const [key, value] of Object.entries(state)) {
+      if (key.startsWith("$")) continue;
+      output.push(`  ${key}: ${safeJson(value)}`);
+    }
+    output.push("");
+  }
+
+  const getterNames: string[] = [];
+  const rawGetters = store?._getters;
+  if (Array.isArray(rawGetters)) getterNames.push(...rawGetters.map((g: unknown) => String(g)));
+  else if (rawGetters instanceof Set) getterNames.push(...Array.from(rawGetters).map(String));
+  else if (rawGetters && typeof rawGetters === "object") getterNames.push(...Object.keys(rawGetters));
+
+  if (getterNames.length > 0) {
+    output.push("## Getters");
+    for (const key of getterNames) {
+      try {
+        output.push(`  ${key}: ${safeJson(store[key])}`);
+      } catch {
+        output.push(`  ${key}: [Error]`);
+      }
+    }
+    output.push("");
+  }
+
+  return output.join("\n");
+}
+
+export function formatRouterInfo(actualRouter: any): string {
+  if (!actualRouter) return "Vue Router not found";
+
+  const output: string[] = [];
+  output.push("# Vue Router\n");
+
+  const currentRoute = actualRouter.currentRoute?.value || actualRouter.currentRoute;
+  if (currentRoute) {
+    output.push("## Current Route");
+    output.push(`  Path: ${currentRoute.path}`);
+    output.push(`  Name: ${currentRoute.name || "(unnamed)"}`);
+    if (currentRoute.params && Object.keys(currentRoute.params).length > 0) {
+      output.push(`  Params: ${JSON.stringify(currentRoute.params)}`);
+    }
+    if (currentRoute.query && Object.keys(currentRoute.query).length > 0) {
+      output.push(`  Query: ${JSON.stringify(currentRoute.query)}`);
+    }
+    output.push("");
+  }
+
+  const routes = actualRouter.getRoutes?.() || actualRouter.options?.routes || [];
+  if (routes.length > 0) {
+    output.push("## All Routes");
+    routes.forEach((route: any) => {
+      const routeName = route.name ? ` (${route.name})` : "";
+      output.push(`  ${route.path}${routeName}`);
+    });
+  }
+
+  return output.join("\n");
+}
+
 /**
  * Get Vue component tree from the page
  */
@@ -22,64 +248,10 @@ export async function getComponentTree(page: Page): Promise<string> {
     // Access Vue DevTools global hook
     const hook = (window as any).__VUE_DEVTOOLS_GLOBAL_HOOK__;
     if (!hook) return "Vue DevTools not found";
-
-    const apps = hook.apps || [];
-    if (apps.length === 0) return "No Vue apps found";
-
-    const output: string[] = [];
-    output.push("# Vue Component Tree");
-    output.push(`# ${apps.length} app(s) detected\n`);
-
-    apps.forEach((app: any, appIndex: number) => {
-      const appName = app._component?.name || app.config?.globalProperties?.$options?.name || `App ${appIndex}`;
-      output.push(`## App: ${appName}`);
-
-      // Get root instance
-      const rootInstance = app._instance || app._container?._vnode?.component;
-      if (!rootInstance) {
-        output.push("  (no root instance)");
-        return;
-      }
-
-      // Traverse component tree
-      const traverse = (instance: any, depth: number = 0) => {
-        if (!instance) return;
-
-        const indent = "  ".repeat(depth);
-        const name = instance.type?.name || instance.type?.__name || "Anonymous";
-        const uid = instance.uid ?? "?";
-
-        output.push(`${indent}[${uid}] ${name}`);
-
-        // Traverse children
-        const subTree = instance.subTree;
-        if (subTree?.component) {
-          traverse(subTree.component, depth + 1);
-        }
-        if (subTree?.children) {
-          subTree.children.forEach((child: any) => {
-            if (child?.component) {
-              traverse(child.component, depth + 1);
-            }
-          });
-        }
-
-        // Traverse direct children
-        if (instance.children) {
-          instance.children.forEach((child: any) => {
-            traverse(child, depth + 1);
-          });
-        }
-      };
-
-      traverse(rootInstance, 1);
-      output.push("");
-    });
-
-    return output.join("\n");
+    return hook.apps || [];
   });
 
-  return result;
+  return formatComponentTree(result);
 }
 
 /**
@@ -130,73 +302,11 @@ export async function getComponentDetails(page: Page, id: string): Promise<strin
       targetInstance = findComponent(rootInstance);
       if (targetInstance) break;
     }
-
-    if (!targetInstance) return `Component ${componentId} not found`;
-
-    const output: string[] = [];
-    const name = targetInstance.type?.name || targetInstance.type?.__name || "Anonymous";
-
-    output.push(`# Component: ${name}`);
-    output.push(`# UID: ${targetInstance.uid}\n`);
-
-    // Props
-    if (targetInstance.props && Object.keys(targetInstance.props).length > 0) {
-      output.push("## Props");
-      for (const [key, value] of Object.entries(targetInstance.props)) {
-        output.push(`  ${key}: ${JSON.stringify(value)}`);
-      }
-      output.push("");
-    }
-
-    // Data
-    if (targetInstance.data && Object.keys(targetInstance.data).length > 0) {
-      output.push("## Data");
-      for (const [key, value] of Object.entries(targetInstance.data)) {
-        output.push(`  ${key}: ${JSON.stringify(value)}`);
-      }
-      output.push("");
-    }
-
-    // Setup state (Composition API)
-    const setupState = targetInstance.setupState || targetInstance.devtoolsRawSetupState;
-    if (setupState && Object.keys(setupState).length > 0) {
-      output.push("## Setup State");
-      for (const [key, value] of Object.entries(setupState)) {
-        if (typeof value === 'function') {
-          output.push(`  ${key}: [Function]`);
-        } else {
-          output.push(`  ${key}: ${JSON.stringify(value)}`);
-        }
-      }
-      output.push("");
-    }
-
-    // Computed
-    const computed = targetInstance.type?.computed;
-    if (computed && Object.keys(computed).length > 0) {
-      output.push("## Computed");
-      for (const key of Object.keys(computed)) {
-        try {
-          const value = targetInstance.proxy?.[key];
-          output.push(`  ${key}: ${JSON.stringify(value)}`);
-        } catch {
-          output.push(`  ${key}: [Error]`);
-        }
-      }
-      output.push("");
-    }
-
-    // File location
-    const file = targetInstance.type?.__file;
-    if (file) {
-      output.push(`## Source`);
-      output.push(`  ${file}`);
-    }
-
-    return output.join("\n");
+    return targetInstance;
   }, id);
 
-  return result;
+  if (typeof result === "string") return result;
+  return formatComponentDetails(result, id);
 }
 
 /**
@@ -204,110 +314,13 @@ export async function getComponentDetails(page: Page, id: string): Promise<strin
  */
 export async function getPiniaStores(page: Page, storeName?: string): Promise<string> {
   const result = await page.evaluate((name) => {
-    const safeJson = (value: unknown): string => {
-      if (typeof value === "function") return "[Function]";
-      if (typeof value === "bigint") return value.toString();
-      const seen = new WeakSet<object>();
-      try {
-        return JSON.stringify(value, (_, v) => {
-          if (typeof v === "function") return "[Function]";
-          if (typeof v === "bigint") return v.toString();
-          if (v && typeof v === "object") {
-            if (seen.has(v as object)) return "[Circular]";
-            seen.add(v as object);
-          }
-          return v;
-        });
-      } catch {
-        return String(value);
-      }
-    };
-
     const hook = (window as any).__VUE_DEVTOOLS_GLOBAL_HOOK__;
     const piniaFromApp = hook?.apps?.[0]?.config?.globalProperties?.$pinia;
-
-    // Try to find Pinia instance
     const pinia = (window as any).__PINIA__ || (window as any).pinia || piniaFromApp;
-    if (!pinia) return "Pinia not found";
-
-    // Pinia v3 uses Map for _s, older integrations can expose plain objects.
-    const storesById: Record<string, any> = {};
-    const registry = pinia._s;
-    if (registry instanceof Map) {
-      registry.forEach((store, id) => {
-        storesById[String(id)] = store;
-      });
-    } else if (registry && typeof registry === "object") {
-      for (const [id, store] of Object.entries(registry)) {
-        storesById[id] = store;
-      }
-    }
-
-    const stateById = pinia.state?.value && typeof pinia.state.value === "object" ? pinia.state.value : {};
-    const storeKeys = Array.from(
-      new Set([...Object.keys(storesById), ...Object.keys(stateById)]),
-    );
-
-    if (storeKeys.length === 0) return "No Pinia stores found";
-
-    const output: string[] = [];
-
-    if (!name) {
-      // List all stores
-      output.push("# Pinia Stores\n");
-      storeKeys.forEach((key) => {
-        output.push(`- ${key}`);
-      });
-      output.push("\nUse 'vite-browser vue pinia <store-name>' to inspect a specific store");
-      return output.join("\n");
-    }
-
-    // Get specific store
-    const store = storesById[name] ?? null;
-    const stateOnly = (stateById as Record<string, unknown>)[name];
-    if (!store && !stateOnly) return `Store '${name}' not found`;
-
-    output.push(`# Pinia Store: ${name}\n`);
-
-    // State
-    const state = store?.$state || store?.state || stateOnly || store;
-    if (state && typeof state === 'object') {
-      output.push("## State");
-      for (const [key, value] of Object.entries(state)) {
-        if (key.startsWith('$')) continue; // Skip Pinia internals
-        output.push(`  ${key}: ${safeJson(value)}`);
-      }
-      output.push("");
-    }
-
-    // Getters
-    const getterNames: string[] = [];
-    const rawGetters = store?._getters;
-    if (Array.isArray(rawGetters)) {
-      getterNames.push(...rawGetters.map((g: unknown) => String(g)));
-    } else if (rawGetters instanceof Set) {
-      getterNames.push(...Array.from(rawGetters).map((g) => String(g)));
-    } else if (rawGetters && typeof rawGetters === "object") {
-      getterNames.push(...Object.keys(rawGetters));
-    }
-
-    if (getterNames.length > 0) {
-      output.push("## Getters");
-      for (const key of getterNames) {
-        try {
-          const value = store[key];
-          output.push(`  ${key}: ${safeJson(value)}`);
-        } catch {
-          output.push(`  ${key}: [Error]`);
-        }
-      }
-      output.push("");
-    }
-
-    return output.join("\n");
+    return pinia || null;
   }, storeName);
 
-  return result;
+  return formatPiniaStores(result, storeName);
 }
 
 /**
@@ -315,50 +328,15 @@ export async function getPiniaStores(page: Page, storeName?: string): Promise<st
  */
 export async function getRouterInfo(page: Page): Promise<string> {
   const result = await page.evaluate(() => {
-    // Try to find Vue Router instance
     const router = (window as any).$router || (window as any).__VUE_ROUTER__;
-
-    // Also try to get from Vue app
     const hook = (window as any).__VUE_DEVTOOLS_GLOBAL_HOOK__;
     let routerFromApp = null;
     if (hook?.apps?.[0]) {
       const app = hook.apps[0];
       routerFromApp = app.config?.globalProperties?.$router;
     }
-
-    const actualRouter = router || routerFromApp;
-    if (!actualRouter) return "Vue Router not found";
-
-    const output: string[] = [];
-    output.push("# Vue Router\n");
-
-    // Current route
-    const currentRoute = actualRouter.currentRoute?.value || actualRouter.currentRoute;
-    if (currentRoute) {
-      output.push("## Current Route");
-      output.push(`  Path: ${currentRoute.path}`);
-      output.push(`  Name: ${currentRoute.name || "(unnamed)"}`);
-      if (currentRoute.params && Object.keys(currentRoute.params).length > 0) {
-        output.push(`  Params: ${JSON.stringify(currentRoute.params)}`);
-      }
-      if (currentRoute.query && Object.keys(currentRoute.query).length > 0) {
-        output.push(`  Query: ${JSON.stringify(currentRoute.query)}`);
-      }
-      output.push("");
-    }
-
-    // All routes
-    const routes = actualRouter.getRoutes?.() || actualRouter.options?.routes || [];
-    if (routes.length > 0) {
-      output.push("## All Routes");
-      routes.forEach((route: any) => {
-        const name = route.name ? ` (${route.name})` : "";
-        output.push(`  ${route.path}${name}`);
-      });
-    }
-
-    return output.join("\n");
+    return router || routerFromApp || null;
   });
 
-  return result;
+  return formatRouterInfo(result);
 }

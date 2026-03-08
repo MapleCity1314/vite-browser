@@ -57,7 +57,7 @@ export function path(nodes: ReactNode[], id: number): string {
   return names.reverse().join(" > ");
 }
 
-function typeName(type: number): string {
+export function typeName(type: number): string {
   const names: Record<number, string> = {
     11: "Root",
     12: "Suspense",
@@ -66,113 +66,97 @@ function typeName(type: number): string {
   return names[type] ?? `(${type})`;
 }
 
-async function inPageSnapshot(): Promise<ReactNode[]> {
-  const hook = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
-  if (!hook) throw new Error("React DevTools hook not installed");
+export function decodeOperations(ops: number[]): ReactNode[] {
+  let i = 2;
 
-  const ri = hook.rendererInterfaces?.get?.(1);
-  if (!ri) throw new Error("no React renderer attached");
-
-  const batches = await collect(ri);
-  return batches.flatMap(decode);
-
-  function collect(ri: { flushInitialOperations: () => void }) {
-    return new Promise<number[][]>((resolve) => {
-      const out: number[][] = [];
-      const listener = (e: MessageEvent) => {
-        const payload = e.data?.payload;
-        if (e.data?.source === "react-devtools-bridge" && payload?.event === "operations") {
-          out.push(payload.payload);
-        }
-      };
-
-      window.addEventListener("message", listener);
-      ri.flushInitialOperations();
-
-      setTimeout(() => {
-        window.removeEventListener("message", listener);
-        resolve(out);
-      }, 80);
-    });
+  const strings: (string | null)[] = [null];
+  const tableEnd = ++i + ops[i - 1];
+  while (i < tableEnd) {
+    const len = ops[i++];
+    strings.push(String.fromCodePoint(...ops.slice(i, i + len)));
+    i += len;
   }
 
-  function decode(ops: number[]): ReactNode[] {
-    let i = 2;
-
-    const strings: (string | null)[] = [null];
-    const tableEnd = ++i + ops[i - 1];
-    while (i < tableEnd) {
-      const len = ops[i++];
-      strings.push(String.fromCodePoint(...ops.slice(i, i + len)));
-      i += len;
-    }
-
-    const nodes: ReactNode[] = [];
-    while (i < ops.length) {
-      const op = ops[i];
-      if (op === 1) {
-        const id = ops[i + 1];
-        const type = ops[i + 2];
-        i += 3;
-        if (type === 11) {
-          nodes.push({ id, type, name: null, key: null, parent: 0 });
-          i += 4;
-        } else {
-          nodes.push({
-            id,
-            type,
-            name: strings[ops[i + 2]] ?? null,
-            key: strings[ops[i + 3]] ?? null,
-            parent: ops[i],
-          });
-          i += 5;
-        }
+  const nodes: ReactNode[] = [];
+  while (i < ops.length) {
+    const op = ops[i];
+    if (op === 1) {
+      const id = ops[i + 1];
+      const type = ops[i + 2];
+      i += 3;
+      if (type === 11) {
+        nodes.push({ id, type, name: null, key: null, parent: 0 });
+        i += 4;
       } else {
-        i += skip(op, ops, i);
+        nodes.push({
+          id,
+          type,
+          name: strings[ops[i + 2]] ?? null,
+          key: strings[ops[i + 3]] ?? null,
+          parent: ops[i],
+        });
+        i += 5;
       }
+    } else {
+      i += skipOperation(op, ops, i);
     }
-
-    return nodes;
   }
 
-  function skip(op: number, ops: number[], i: number): number {
-    if (op === 2) return 2 + ops[i + 1];
-    if (op === 3) return 3 + ops[i + 2];
-    if (op === 4) return 3;
-    if (op === 5) return 4;
-    if (op === 6) return 1;
-    if (op === 7) return 3;
-    if (op === 8) return 6 + rects(ops[i + 5]);
-    if (op === 9) return 2 + ops[i + 1];
-    if (op === 10) return 3 + ops[i + 2];
-    if (op === 11) return 3 + rects(ops[i + 2]);
-    if (op === 12) return suspenders(ops, i);
-    if (op === 13) return 2;
-    return 1;
-  }
-
-  function rects(n: number) {
-    return n === -1 ? 0 : n * 4;
-  }
-
-  function suspenders(ops: number[], i: number) {
-    let j = i + 2;
-    for (let c = 0; c < ops[i + 1]; c++) j += 5 + ops[j + 4];
-    return j - i;
-  }
+  return nodes;
 }
 
-function inPageInspect(id: number): ReactInspection {
-  const hook = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
-  const ri = hook?.rendererInterfaces?.get?.(1);
-  if (!ri) throw new Error("no React renderer attached");
-  if (!ri.hasElementWithId(id)) throw new Error(`element ${id} not found (page reloaded?)`);
+export function skipOperation(op: number, ops: number[], i: number): number {
+  if (op === 2) return 2 + ops[i + 1];
+  if (op === 3) return 3 + ops[i + 2];
+  if (op === 4) return 3;
+  if (op === 5) return 4;
+  if (op === 6) return 1;
+  if (op === 7) return 3;
+  if (op === 8) return 6 + rectCount(ops[i + 5]);
+  if (op === 9) return 2 + ops[i + 1];
+  if (op === 10) return 3 + ops[i + 2];
+  if (op === 11) return 3 + rectCount(ops[i + 2]);
+  if (op === 12) return suspenseSkip(ops, i);
+  if (op === 13) return 2;
+  return 1;
+}
 
-  const result = ri.inspectElement(1, id, null, true);
-  if (result?.type !== "full-data") throw new Error(`inspect failed: ${result?.type}`);
+export function rectCount(n: number) {
+  return n === -1 ? 0 : n * 4;
+}
 
-  const value = result.value;
-  const name = ri.getDisplayNameForElementID(id);
+export function suspenseSkip(ops: number[], i: number) {
+  let j = i + 2;
+  for (let c = 0; c < ops[i + 1]; c++) j += 5 + ops[j + 4];
+  return j - i;
+}
+
+export function previewValue(v: unknown): string {
+  if (v == null) return String(v);
+  if (typeof v !== "object") return JSON.stringify(v);
+
+  const d = v as { type?: string; preview_long?: string; preview_short?: string };
+  if (d.type === "undefined") return "undefined";
+  if (d.preview_long) return d.preview_long;
+  if (d.preview_short) return d.preview_short;
+  if (Array.isArray(v)) return `[${v.map(previewValue).join(", ")}]`;
+
+  const entries = Object.entries(v).map(([k, val]) => `${k}: ${previewValue(val)}`);
+  return `{${entries.join(", ")}}`;
+}
+
+export function formatHookLine(h: {
+  id: number | null;
+  name: string;
+  value: unknown;
+  subHooks?: unknown[];
+}) {
+  const idx = h.id != null ? `[${h.id}] ` : "";
+  const sub = h.subHooks?.length ? ` (${h.subHooks.length} sub)` : "";
+  return `${idx}${h.name}: ${previewValue(h.value)}${sub}`;
+}
+
+export function formatInspectionResult(name: string, id: number, value: any): ReactInspection {
   const lines: string[] = [`${name} #${id}`];
 
   if (value.key != null) lines.push(`key: ${JSON.stringify(value.key)}`);
@@ -200,7 +184,7 @@ function inPageInspect(id: number): ReactInspection {
     if (Array.isArray(data)) {
       if (data.length === 0) return;
       lines.push(`${label}:`);
-      for (const item of data) lines.push(`  ${hookLine(item)}`);
+      for (const item of data) lines.push(`  ${formatHookLine(item as never)}`);
       return;
     }
 
@@ -208,27 +192,51 @@ function inPageInspect(id: number): ReactInspection {
       const entries = Object.entries(data);
       if (entries.length === 0) return;
       lines.push(`${label}:`);
-      for (const [k, v] of entries) lines.push(`  ${k}: ${preview(v)}`);
+      for (const [k, v] of entries) lines.push(`  ${k}: ${previewValue(v)}`);
     }
   }
+}
 
-  function hookLine(h: { id: number | null; name: string; value: unknown; subHooks?: unknown[] }) {
-    const idx = h.id != null ? `[${h.id}] ` : "";
-    const sub = h.subHooks?.length ? ` (${h.subHooks.length} sub)` : "";
-    return `${idx}${h.name}: ${preview(h.value)}${sub}`;
+async function inPageSnapshot(): Promise<ReactNode[]> {
+  const hook = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  if (!hook) throw new Error("React DevTools hook not installed");
+
+  const ri = hook.rendererInterfaces?.get?.(1);
+  if (!ri) throw new Error("no React renderer attached");
+
+  const batches = await collect(ri);
+  return batches.flatMap(decodeOperations);
+
+  function collect(ri: { flushInitialOperations: () => void }) {
+    return new Promise<number[][]>((resolve) => {
+      const out: number[][] = [];
+      const listener = (e: MessageEvent) => {
+        const payload = e.data?.payload;
+        if (e.data?.source === "react-devtools-bridge" && payload?.event === "operations") {
+          out.push(payload.payload);
+        }
+      };
+
+      window.addEventListener("message", listener);
+      ri.flushInitialOperations();
+
+      setTimeout(() => {
+        window.removeEventListener("message", listener);
+        resolve(out);
+      }, 80);
+    });
   }
+}
 
-  function preview(v: unknown): string {
-    if (v == null) return String(v);
-    if (typeof v !== "object") return JSON.stringify(v);
+function inPageInspect(id: number): ReactInspection {
+  const hook = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  const ri = hook?.rendererInterfaces?.get?.(1);
+  if (!ri) throw new Error("no React renderer attached");
+  if (!ri.hasElementWithId(id)) throw new Error(`element ${id} not found (page reloaded?)`);
 
-    const d = v as { type?: string; preview_long?: string; preview_short?: string };
-    if (d.type === "undefined") return "undefined";
-    if (d.preview_long) return d.preview_long;
-    if (d.preview_short) return d.preview_short;
-    if (Array.isArray(v)) return `[${v.map(preview).join(", ")}]`;
+  const result = ri.inspectElement(1, id, null, true);
+  if (result?.type !== "full-data") throw new Error(`inspect failed: ${result?.type}`);
 
-    const entries = Object.entries(v).map(([k, val]) => `${k}: ${preview(val)}`);
-    return `{${entries.join(", ")}}`;
-  }
+  const name = ri.getDisplayNameForElementID(id);
+  return formatInspectionResult(name, id, result.value);
 }

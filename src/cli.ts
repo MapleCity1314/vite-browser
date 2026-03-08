@@ -1,191 +1,210 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { send } from "./client.js";
+import { send, type Response } from "./client.js";
 
-const args = process.argv.slice(2);
-const cmd = args[0];
-const arg = args[1];
+export type CliIo = {
+  send: typeof send;
+  readFile: (path: string, encoding: BufferEncoding) => string;
+  stdout: (text: string) => void;
+  stderr: (text: string) => void;
+  exit: (code: number) => never;
+};
 
-if (cmd === "--help" || cmd === "-h" || !cmd) {
-  printUsage();
-  process.exit(0);
+export function normalizeUrl(value: string): string {
+  if (value.includes("://")) return value;
+  return `http://${value}`;
 }
 
-if (cmd === "open") {
-  if (!arg) {
-    console.error("usage: vite-browser open <url> [--cookies-json <file>]");
-    process.exit(1);
-  }
-  const url = normalizeUrl(arg);
-  const cookieIdx = args.indexOf("--cookies-json");
-  const cookieFile = cookieIdx >= 0 ? args[cookieIdx + 1] : undefined;
-
-  if (cookieFile) {
-    const res = await send("open");
-    if (!res.ok) exit(res, "");
-    const raw = readFileSync(cookieFile, "utf-8");
-    const cookies = JSON.parse(raw);
-    const domain = new URL(url).hostname;
-    const cRes = await send("cookies", { cookies, domain });
-    if (!cRes.ok) exit(cRes, "");
-    await send("goto", { url });
-    exit(res, `opened -> ${url} (${cookies.length} cookies for ${domain})`);
-  }
-
-  const res = await send("open", { url });
-  exit(res, `opened -> ${url}`);
+export function parseNumberFlag(args: string[], name: string, fallback: number): number {
+  const idx = args.indexOf(name);
+  if (idx < 0) return fallback;
+  return Number.parseInt(args[idx + 1] ?? String(fallback), 10);
 }
 
-if (cmd === "close") {
-  const res = await send("close");
-  exit(res, "closed");
-}
+export async function runCli(argv: string[], io: CliIo) {
+  const args = argv.slice(2);
+  const cmd = args[0];
+  const arg = args[1];
 
-if (cmd === "goto") {
-  if (!arg) {
-    console.error("usage: vite-browser goto <url>");
-    process.exit(1);
-  }
-  const res = await send("goto", { url: normalizeUrl(arg) });
-  exit(res, res.ok ? `-> ${res.data}` : "");
-}
-
-if (cmd === "back") {
-  const res = await send("back");
-  exit(res, "back");
-}
-
-if (cmd === "reload") {
-  const res = await send("reload");
-  exit(res, res.ok ? `reloaded -> ${res.data}` : "");
-}
-
-if (cmd === "detect") {
-  const res = await send("detect");
-  exit(res, res.ok && res.data ? String(res.data) : "");
-}
-
-if (cmd === "vue" && arg === "tree") {
-  const id = args[2];
-  const res = await send("vue-tree", { id });
-  exit(res, res.ok && res.data ? String(res.data) : "");
-}
-
-if (cmd === "vue" && arg === "pinia") {
-  const store = args[2];
-  const res = await send("vue-pinia", { store });
-  exit(res, res.ok && res.data ? String(res.data) : "");
-}
-
-if (cmd === "vue" && arg === "router") {
-  const res = await send("vue-router");
-  exit(res, res.ok && res.data ? String(res.data) : "");
-}
-
-if (cmd === "react" && arg === "tree") {
-  const id = args[2];
-  const res = await send("react-tree", { id });
-  exit(res, res.ok && res.data ? String(res.data) : "");
-}
-
-if (cmd === "svelte" && arg === "tree") {
-  const id = args[2];
-  const res = await send("svelte-tree", { id });
-  exit(res, res.ok && res.data ? String(res.data) : "");
-}
-
-if (cmd === "vite" && arg === "restart") {
-  const res = await send("vite-restart");
-  exit(res, res.ok && res.data ? String(res.data) : "restarted");
-}
-
-if (cmd === "vite" && arg === "hmr") {
-  const sub = args[2];
-  if (sub === "clear") {
-    const res = await send("vite-hmr", { mode: "clear" });
-    exit(res, res.ok && res.data ? String(res.data) : "cleared HMR trace");
+  if (cmd === "--help" || cmd === "-h" || !cmd) {
+    io.stdout(printUsage());
+    io.exit(0);
   }
 
-  if (sub === "trace") {
-    const limitIdx = args.indexOf("--limit");
-    const limit = limitIdx >= 0 ? Number.parseInt(args[limitIdx + 1] ?? "20", 10) : 20;
-    const res = await send("vite-hmr", { mode: "trace", limit });
-    exit(res, res.ok && res.data ? String(res.data) : "");
+  if (cmd === "open") {
+    if (!arg) {
+      io.stderr("usage: vite-browser open <url> [--cookies-json <file>]");
+      io.exit(1);
+    }
+    const url = normalizeUrl(arg);
+    const cookieIdx = args.indexOf("--cookies-json");
+    const cookieFile = cookieIdx >= 0 ? args[cookieIdx + 1] : undefined;
+
+    if (cookieFile) {
+      const res = await io.send("open");
+      if (!res.ok) exit(io, res, "");
+      const raw = io.readFile(cookieFile, "utf-8");
+      const cookies = JSON.parse(raw);
+      const domain = new URL(url).hostname;
+      const cRes = await io.send("cookies", { cookies, domain });
+      if (!cRes.ok) exit(io, cRes, "");
+      await io.send("goto", { url });
+      exit(io, res, `opened -> ${url} (${cookies.length} cookies for ${domain})`);
+    }
+
+    const res = await io.send("open", { url });
+    exit(io, res, `opened -> ${url}`);
   }
 
-  const res = await send("vite-hmr", { mode: "summary", limit: 20 });
-  exit(res, res.ok && res.data ? String(res.data) : "");
-}
-
-if (cmd === "vite" && arg === "runtime") {
-  const res = await send("vite-runtime");
-  exit(res, res.ok && res.data ? String(res.data) : "");
-}
-
-if (cmd === "vite" && arg === "module-graph") {
-  const sub = args[2];
-  const filterIdx = args.indexOf("--filter");
-  const limitIdx = args.indexOf("--limit");
-  const filter = filterIdx >= 0 ? args[filterIdx + 1] : undefined;
-  const limit = limitIdx >= 0 ? Number.parseInt(args[limitIdx + 1] ?? "200", 10) : 200;
-  if (sub === "clear") {
-    const res = await send("vite-module-graph", { mode: "clear" });
-    exit(res, res.ok && res.data ? String(res.data) : "cleared module-graph baseline");
+  if (cmd === "close") {
+    const res = await io.send("close");
+    exit(io, res, "closed");
   }
-  if (sub === "trace") {
-    const res = await send("vite-module-graph", { mode: "trace", filter, limit });
-    exit(res, res.ok && res.data ? String(res.data) : "");
+
+  if (cmd === "goto") {
+    if (!arg) {
+      io.stderr("usage: vite-browser goto <url>");
+      io.exit(1);
+    }
+    const res = await io.send("goto", { url: normalizeUrl(arg) });
+    exit(io, res, res.ok ? `-> ${res.data}` : "");
   }
-  const res = await send("vite-module-graph", { mode: "snapshot", filter, limit });
-  exit(res, res.ok && res.data ? String(res.data) : "");
-}
 
-if (cmd === "errors") {
-  const mapped = args.includes("--mapped");
-  const inlineSource = args.includes("--inline-source");
-  const res = await send("errors", { mapped, inlineSource });
-  exit(res, res.ok && res.data ? String(res.data) : "no errors");
-}
-
-if (cmd === "logs") {
-  const res = await send("logs");
-  exit(res, res.ok && res.data ? String(res.data) : "");
-}
-
-if (cmd === "screenshot") {
-  const res = await send("screenshot");
-  exit(res, res.ok && res.data ? String(res.data) : "");
-}
-
-if (cmd === "eval") {
-  if (!arg) {
-    console.error("usage: vite-browser eval <script>");
-    process.exit(1);
+  if (cmd === "back") {
+    const res = await io.send("back");
+    exit(io, res, "back");
   }
-  const res = await send("eval", { script: arg });
-  exit(res, res.ok && res.data ? String(res.data) : "");
+
+  if (cmd === "reload") {
+    const res = await io.send("reload");
+    exit(io, res, res.ok ? `reloaded -> ${res.data}` : "");
+  }
+
+  if (cmd === "detect") {
+    const res = await io.send("detect");
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "vue" && arg === "tree") {
+    const id = args[2];
+    const res = await io.send("vue-tree", { id });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "vue" && arg === "pinia") {
+    const store = args[2];
+    const res = await io.send("vue-pinia", { store });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "vue" && arg === "router") {
+    const res = await io.send("vue-router");
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "react" && arg === "tree") {
+    const id = args[2];
+    const res = await io.send("react-tree", { id });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "svelte" && arg === "tree") {
+    const id = args[2];
+    const res = await io.send("svelte-tree", { id });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "vite" && arg === "restart") {
+    const res = await io.send("vite-restart");
+    exit(io, res, res.ok && res.data ? String(res.data) : "restarted");
+  }
+
+  if (cmd === "vite" && arg === "hmr") {
+    const sub = args[2];
+    if (sub === "clear") {
+      const res = await io.send("vite-hmr", { mode: "clear" });
+      exit(io, res, res.ok && res.data ? String(res.data) : "cleared HMR trace");
+    }
+
+    if (sub === "trace") {
+      const limit = parseNumberFlag(args, "--limit", 20);
+      const res = await io.send("vite-hmr", { mode: "trace", limit });
+      exit(io, res, res.ok && res.data ? String(res.data) : "");
+    }
+
+    const res = await io.send("vite-hmr", { mode: "summary", limit: 20 });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "vite" && arg === "runtime") {
+    const res = await io.send("vite-runtime");
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "vite" && arg === "module-graph") {
+    const sub = args[2];
+    const filterIdx = args.indexOf("--filter");
+    const filter = filterIdx >= 0 ? args[filterIdx + 1] : undefined;
+    const limit = parseNumberFlag(args, "--limit", 200);
+    if (sub === "clear") {
+      const res = await io.send("vite-module-graph", { mode: "clear" });
+      exit(io, res, res.ok && res.data ? String(res.data) : "cleared module-graph baseline");
+    }
+    if (sub === "trace") {
+      const res = await io.send("vite-module-graph", { mode: "trace", filter, limit });
+      exit(io, res, res.ok && res.data ? String(res.data) : "");
+    }
+    const res = await io.send("vite-module-graph", { mode: "snapshot", filter, limit });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "errors") {
+    const mapped = args.includes("--mapped");
+    const inlineSource = args.includes("--inline-source");
+    const res = await io.send("errors", { mapped, inlineSource });
+    exit(io, res, res.ok && res.data ? String(res.data) : "no errors");
+  }
+
+  if (cmd === "logs") {
+    const res = await io.send("logs");
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "screenshot") {
+    const res = await io.send("screenshot");
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "eval") {
+    if (!arg) {
+      io.stderr("usage: vite-browser eval <script>");
+      io.exit(1);
+    }
+    const res = await io.send("eval", { script: arg });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "network") {
+    const idx = arg ? parseInt(arg, 10) : undefined;
+    const res = await io.send("network", { idx });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  io.stderr(`unknown command: ${cmd}`);
+  io.exit(1);
 }
 
-if (cmd === "network") {
-  const idx = arg ? parseInt(arg, 10) : undefined;
-  const res = await send("network", { idx });
-  exit(res, res.ok && res.data ? String(res.data) : "");
-}
-
-console.error(`unknown command: ${cmd}`);
-process.exit(1);
-
-function exit(res: { ok: boolean; error?: string }, msg: string) {
+export function exit(io: Pick<CliIo, "stdout" | "stderr" | "exit">, res: Response, msg: string): never {
   if (!res.ok) {
-    console.error(res.error || "error");
-    process.exit(1);
+    io.stderr(res.error || "error");
+    io.exit(1);
   }
-  if (msg) console.log(msg);
-  process.exit(0);
+  if (msg) io.stdout(msg);
+  io.exit(0);
 }
 
-function printUsage() {
-  console.log(`
+export function printUsage() {
+  return `
 vite-browser - Programmatic access to Vue/React/Svelte DevTools and Vite dev server
 
 USAGE
@@ -235,10 +254,15 @@ UTILITIES
 
 OPTIONS
   -h, --help                          Show this help message
-`);
+`;
 }
 
-function normalizeUrl(value: string): string {
-  if (value.includes("://")) return value;
-  return `http://${value}`;
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replaceAll("\\", "/"))) {
+  await runCli(process.argv, {
+    send,
+    readFile: readFileSync,
+    stdout: (text) => console.log(text),
+    stderr: (text) => console.error(text),
+    exit: (code) => process.exit(code),
+  });
 }

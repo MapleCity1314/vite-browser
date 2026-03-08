@@ -27,7 +27,16 @@ const MAX_LOGS = 200;
 const MAX_HMR_EVENTS = 500;
 let lastReactSnapshot: reactDevtools.ReactNode[] = [];
 type HmrEventType = "connecting" | "connected" | "update" | "full-reload" | "error" | "log";
-type HmrEvent = { timestamp: number; type: HmrEventType; message: string; path?: string };
+export type HmrEvent = { timestamp: number; type: HmrEventType; message: string; path?: string };
+export type RuntimeSnapshot = {
+  url: string;
+  hasViteClient: boolean;
+  wsState: string;
+  hasErrorOverlay: boolean;
+  timestamp: number;
+};
+export type ModuleRow = { url: string; initiator: string; durationMs: number };
+export type ModuleGraphMode = "snapshot" | "trace" | "clear";
 const hmrEvents: HmrEvent[] = [];
 let lastModuleGraphUrls: string[] | null = null;
 
@@ -85,7 +94,7 @@ async function ensurePage(): Promise<Page> {
   return page;
 }
 
-function contextUsable(current: BrowserContext | null): current is BrowserContext {
+export function contextUsable(current: Pick<BrowserContext, "pages"> | null): current is Pick<BrowserContext, "pages"> {
   if (!current) return false;
   try {
     current.pages();
@@ -95,7 +104,7 @@ function contextUsable(current: BrowserContext | null): current is BrowserContex
   }
 }
 
-function isClosedTargetError(error: unknown): boolean {
+export function isClosedTargetError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   return /Target page, context or browser has been closed/i.test(error.message);
 }
@@ -129,20 +138,30 @@ async function launch(): Promise<BrowserContext> {
 
 function attachListeners(currentPage: Page) {
   currentPage.on("console", (msg) => {
-    const text = `[${msg.type()}] ${msg.text()}`;
-    consoleLogs.push(text);
-    if (consoleLogs.length > MAX_LOGS) consoleLogs.shift();
-
-    const viteMessage = msg.text();
-    if (!viteMessage.includes("[vite]")) return;
-
-    const event = parseViteLog(viteMessage);
-    hmrEvents.push(event);
-    if (hmrEvents.length > MAX_HMR_EVENTS) hmrEvents.shift();
+    recordConsoleMessage(consoleLogs, hmrEvents, msg.type(), msg.text());
   });
 }
 
-function parseViteLog(message: string): HmrEvent {
+export function recordConsoleMessage(
+  logs: string[],
+  events: HmrEvent[],
+  type: string,
+  message: string,
+  maxLogs = MAX_LOGS,
+  maxEvents = MAX_HMR_EVENTS,
+) {
+  const text = `[${type}] ${message}`;
+  logs.push(text);
+  if (logs.length > maxLogs) logs.shift();
+
+  if (!message.includes("[vite]")) return;
+
+  const event = parseViteLog(message);
+  events.push(event);
+  if (events.length > maxEvents) events.shift();
+}
+
+export function parseViteLog(message: string): HmrEvent {
   const lower = message.toLowerCase();
   const event: HmrEvent = {
     timestamp: Date.now(),
@@ -166,6 +185,134 @@ function parseViteLog(message: string): HmrEvent {
   const hotUpdateMatch = message.match(/hot updated:\s*(.+)$/i);
   if (hotUpdateMatch?.[1]) event.path = hotUpdateMatch[1].trim();
   return event;
+}
+
+export function normalizeLimit(limit: number, fallback: number, max: number): number {
+  if (!Number.isFinite(limit) || limit <= 0) return fallback;
+  return Math.min(limit, max);
+}
+
+export function formatRuntimeStatus(
+  runtime: RuntimeSnapshot,
+  currentFramework: string,
+  events: HmrEvent[],
+): string {
+  const output: string[] = [];
+  output.push("# Vite Runtime");
+  output.push(`URL: ${runtime.url}`);
+  output.push(`Framework: ${currentFramework}`);
+  output.push(`Vite Client: ${runtime.hasViteClient ? "loaded" : "not detected"}`);
+  output.push(`HMR Socket: ${runtime.wsState}`);
+  output.push(`Error Overlay: ${runtime.hasErrorOverlay ? "present" : "none"}`);
+  output.push(`Tracked HMR Events: ${events.length}`);
+
+  const last = events[events.length - 1];
+  if (last) {
+    output.push(
+      `Last HMR Event: ${new Date(last.timestamp).toLocaleTimeString()} [${last.type}] ${last.message}`,
+    );
+  }
+
+  return output.join("\n");
+}
+
+export function formatHmrTrace(
+  mode: "summary" | "trace",
+  events: HmrEvent[],
+  limit: number,
+): string {
+  if (events.length === 0) return "No HMR updates";
+
+  const safeLimit = normalizeLimit(limit, 20, 200);
+  const recent = events.slice(-safeLimit);
+
+  if (mode === "summary") {
+    const counts = recent.reduce<Record<string, number>>((acc, event) => {
+      acc[event.type] = (acc[event.type] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    const lines: string[] = ["# HMR Summary"];
+    lines.push(`Events considered: ${recent.length}`);
+    lines.push(
+      `Counts: ${Object.entries(counts)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(", ")}`,
+    );
+    const last = recent[recent.length - 1];
+    lines.push(
+      `Last: ${new Date(last.timestamp).toLocaleTimeString()} [${last.type}] ${last.path ?? last.message}`,
+    );
+    lines.push("\nUse `vite-browser vite hmr trace --limit <n>` for timeline details.");
+    return lines.join("\n");
+  }
+
+  return [
+    "# HMR Trace",
+    ...recent.map((event) => {
+      const detail = event.path ? `${event.path}` : event.message;
+      return `[${new Date(event.timestamp).toLocaleTimeString()}] ${event.type} ${detail}`;
+    }),
+  ].join("\n");
+}
+
+export function formatModuleGraphSnapshot(rows: ModuleRow[], filter?: string, limit = 200): string {
+  const normalizedFilter = filter?.trim().toLowerCase();
+  const safeLimit = normalizeLimit(limit, 200, 500);
+  const filtered = rows.filter((row) =>
+    normalizedFilter ? row.url.toLowerCase().includes(normalizedFilter) : true,
+  );
+  const limited = filtered.slice(0, safeLimit);
+
+  if (limited.length === 0) return "No module resources found";
+
+  const lines: string[] = [];
+  lines.push("# Vite Module Graph (loaded resources)");
+  lines.push(`Total: ${filtered.length}${filtered.length > limited.length ? ` (showing ${limited.length})` : ""}`);
+  lines.push("# idx initiator ms url");
+  lines.push("");
+  limited.forEach((row, idx) => {
+    lines.push(`${idx} ${row.initiator} ${row.durationMs}ms ${row.url}`);
+  });
+
+  return lines.join("\n");
+}
+
+export function formatModuleGraphTrace(
+  currentUrls: string[],
+  previousUrls: Set<string> | null,
+  filter?: string,
+  limit = 200,
+): string {
+  if (!previousUrls) {
+    return "No module-graph baseline. Captured current snapshot; run `vite module-graph trace` again.";
+  }
+
+  const currentSet = new Set(currentUrls);
+  const added = currentUrls.filter((url) => !previousUrls.has(url));
+  const removed = [...previousUrls].filter((url) => !currentSet.has(url));
+  const normalizedFilter = filter?.trim().toLowerCase();
+  const safeLimit = normalizeLimit(limit, 200, 500);
+
+  const addedFiltered = normalizedFilter
+    ? added.filter((url) => url.toLowerCase().includes(normalizedFilter))
+    : added;
+  const removedFiltered = normalizedFilter
+    ? removed.filter((url) => url.toLowerCase().includes(normalizedFilter))
+    : removed;
+
+  const lines: string[] = [];
+  lines.push("# Vite Module Graph Trace");
+  lines.push(`Added: ${addedFiltered.length}, Removed: ${removedFiltered.length}`);
+  lines.push("");
+  lines.push("## Added");
+  if (addedFiltered.length === 0) lines.push("(none)");
+  else addedFiltered.slice(0, safeLimit).forEach((url) => lines.push(`+ ${url}`));
+  lines.push("");
+  lines.push("## Removed");
+  if (removedFiltered.length === 0) lines.push("(none)");
+  else removedFiltered.slice(0, safeLimit).forEach((url) => lines.push(`- ${url}`));
+  return lines.join("\n");
 }
 
 export async function goto(url: string) {
@@ -294,7 +441,7 @@ export async function viteHMR(): Promise<string> {
 export async function viteRuntimeStatus(): Promise<string> {
   if (!page) throw new Error("browser not open");
 
-  const runtime = await page.evaluate(() => {
+  const runtime = await page.evaluate((): RuntimeSnapshot => {
     const findViteClient = () => {
       const scripts = Array.from(document.querySelectorAll("script[src]"));
       return scripts.some((script) => script.getAttribute("src")?.includes("/@vite/client"));
@@ -321,23 +468,7 @@ export async function viteRuntimeStatus(): Promise<string> {
     };
   });
 
-  const output: string[] = [];
-  output.push("# Vite Runtime");
-  output.push(`URL: ${runtime.url}`);
-  output.push(`Framework: ${framework}`);
-  output.push(`Vite Client: ${runtime.hasViteClient ? "loaded" : "not detected"}`);
-  output.push(`HMR Socket: ${runtime.wsState}`);
-  output.push(`Error Overlay: ${runtime.hasErrorOverlay ? "present" : "none"}`);
-  output.push(`Tracked HMR Events: ${hmrEvents.length}`);
-
-  const last = hmrEvents[hmrEvents.length - 1];
-  if (last) {
-    output.push(
-      `Last HMR Event: ${new Date(last.timestamp).toLocaleTimeString()} [${last.type}] ${last.message}`,
-    );
-  }
-
-  return output.join("\n");
+  return formatRuntimeStatus(runtime, framework, hmrEvents);
 }
 
 export async function viteHMRTrace(mode: "summary" | "trace" | "clear", limit = 20): Promise<string> {
@@ -362,44 +493,13 @@ export async function viteHMRTrace(mode: "summary" | "trace" | "clear", limit = 
   }
 
   if (hmrEvents.length === 0) return "No HMR updates";
-
-  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 200) : 20;
-  const recent = hmrEvents.slice(-safeLimit);
-
-  if (mode === "summary") {
-    const counts = recent.reduce<Record<string, number>>((acc, event) => {
-      acc[event.type] = (acc[event.type] ?? 0) + 1;
-      return acc;
-    }, {});
-
-    const lines: string[] = ["# HMR Summary"];
-    lines.push(`Events considered: ${recent.length}`);
-    lines.push(
-      `Counts: ${Object.entries(counts)
-        .map(([k, v]) => `${k}=${v}`)
-        .join(", ")}`,
-    );
-    const last = recent[recent.length - 1];
-    lines.push(
-      `Last: ${new Date(last.timestamp).toLocaleTimeString()} [${last.type}] ${last.path ?? last.message}`,
-    );
-    lines.push("\nUse `vite-browser vite hmr trace --limit <n>` for timeline details.");
-    return lines.join("\n");
-  }
-
-  return [
-    "# HMR Trace",
-    ...recent.map((event) => {
-      const detail = event.path ? `${event.path}` : event.message;
-      return `[${new Date(event.timestamp).toLocaleTimeString()}] ${event.type} ${detail}`;
-    }),
-  ].join("\n");
+  return formatHmrTrace(mode, hmrEvents, limit);
 }
 
 export async function viteModuleGraph(
   filter?: string,
   limit = 200,
-  mode: "snapshot" | "trace" | "clear" = "snapshot",
+  mode: ModuleGraphMode = "snapshot",
 ): Promise<string> {
   if (!page) throw new Error("browser not open");
 
@@ -411,64 +511,16 @@ export async function viteModuleGraph(
   const moduleRows = await collectModuleRows(page);
   const currentUrls = moduleRows.map((row) => row.url);
   const previousUrls = lastModuleGraphUrls ? new Set(lastModuleGraphUrls) : null;
-  const currentSet = new Set(currentUrls);
   lastModuleGraphUrls = [...currentUrls];
 
-  const normalizedFilter = filter?.trim().toLowerCase();
-  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 500) : 200;
-
   if (mode === "trace") {
-    if (!previousUrls) {
-      return "No module-graph baseline. Captured current snapshot; run `vite module-graph trace` again.";
-    }
-
-    const added = currentUrls.filter((url) => !previousUrls.has(url));
-    const removed = [...previousUrls].filter((url) => !currentSet.has(url));
-
-    const addedFiltered = normalizedFilter
-      ? added.filter((url) => url.toLowerCase().includes(normalizedFilter))
-      : added;
-    const removedFiltered = normalizedFilter
-      ? removed.filter((url) => url.toLowerCase().includes(normalizedFilter))
-      : removed;
-
-    const lines: string[] = [];
-    lines.push("# Vite Module Graph Trace");
-    lines.push(`Added: ${addedFiltered.length}, Removed: ${removedFiltered.length}`);
-    lines.push("");
-
-    lines.push("## Added");
-    if (addedFiltered.length === 0) lines.push("(none)");
-    else addedFiltered.slice(0, safeLimit).forEach((url) => lines.push(`+ ${url}`));
-
-    lines.push("");
-    lines.push("## Removed");
-    if (removedFiltered.length === 0) lines.push("(none)");
-    else removedFiltered.slice(0, safeLimit).forEach((url) => lines.push(`- ${url}`));
-
-    return lines.join("\n");
+    return formatModuleGraphTrace(currentUrls, previousUrls, filter, limit);
   }
 
-  const filtered = moduleRows.filter((row) =>
-    normalizedFilter ? row.url.toLowerCase().includes(normalizedFilter) : true,
-  );
-  const limited = filtered.slice(0, safeLimit);
-
-  if (limited.length === 0) return "No module resources found";
-
-  const lines: string[] = [];
-  lines.push("# Vite Module Graph (loaded resources)");
-  lines.push(`Total: ${filtered.length}${filtered.length > limited.length ? ` (showing ${limited.length})` : ""}`);
-  lines.push("# idx initiator ms url");
-  lines.push("");
-  limited.forEach((row, idx) => {
-    lines.push(`${idx} ${row.initiator} ${row.durationMs}ms ${row.url}`);
-  });
-
-  return lines.join("\n");
+  return formatModuleGraphSnapshot(moduleRows, filter, limit);
 }
 
-async function collectModuleRows(page: Page): Promise<{ url: string; initiator: string; durationMs: number }[]> {
+async function collectModuleRows(page: Page): Promise<ModuleRow[]> {
   return page.evaluate(() => {
     const isLikelyModuleUrl = (url: string) => {
       if (!url) return false;
@@ -502,7 +554,7 @@ async function collectModuleRows(page: Page): Promise<{ url: string; initiator: 
     ];
 
     const seen = new Set<string>();
-    const unique: { url: string; initiator: string; durationMs: number }[] = [];
+    const unique: ModuleRow[] = [];
     for (const row of all) {
       if (seen.has(row.url)) continue;
       seen.add(row.url);
@@ -558,7 +610,12 @@ export async function network(idx?: number): Promise<string> {
   return networkLog.detail(idx);
 }
 
-async function mapStackTrace(stack: string, origin: string, inlineSource = false): Promise<string> {
+export async function mapStackTrace(
+  stack: string,
+  origin: string,
+  inlineSource = false,
+  resolver: typeof resolveViaSourceMap = resolveViaSourceMap,
+): Promise<string> {
   const locationRegex = /(https?:\/\/[^\s)]+):(\d+):(\d+)/g;
   const matches = Array.from(stack.matchAll(locationRegex));
   if (matches.length === 0) return stack;
@@ -570,7 +627,7 @@ async function mapStackTrace(stack: string, origin: string, inlineSource = false
     const column = Number.parseInt(match[3], 10);
     if (!Number.isFinite(line) || !Number.isFinite(column)) continue;
 
-    const mapped = await resolveViaSourceMap(origin, fileUrl, line, column, inlineSource);
+    const mapped = await resolver(origin, fileUrl, line, column, inlineSource);
     if (!mapped) continue;
     mappedLines.push(`- ${fileUrl}:${line}:${column} -> ${mapped.file}:${mapped.line}:${mapped.column}`);
     if (inlineSource && mapped.snippet) {

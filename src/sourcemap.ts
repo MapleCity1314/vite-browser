@@ -8,6 +8,7 @@ type MappedLocation = {
 };
 
 const consumers = new Map<string, SourceMapConsumer | null>();
+type FetchImpl = typeof fetch;
 
 export async function resolveViaSourceMap(
   origin: string,
@@ -15,8 +16,9 @@ export async function resolveViaSourceMap(
   line: number,
   column: number,
   includeSnippet = false,
+  fetchImpl: FetchImpl = fetch,
 ): Promise<MappedLocation | null> {
-  const consumer = await loadConsumer(origin, fileUrl);
+  const consumer = await loadConsumer(origin, fileUrl, fetchImpl);
   if (!consumer) return null;
 
   const position = consumer.originalPositionFor({
@@ -39,7 +41,15 @@ export async function resolveViaSourceMap(
   return mapped;
 }
 
-async function loadConsumer(origin: string, fileUrl: string): Promise<SourceMapConsumer | null> {
+export function clearSourceMapCache() {
+  consumers.clear();
+}
+
+async function loadConsumer(
+  origin: string,
+  fileUrl: string,
+  fetchImpl: FetchImpl,
+): Promise<SourceMapConsumer | null> {
   const candidates = buildMapCandidates(origin, fileUrl);
 
   for (const url of candidates) {
@@ -49,7 +59,7 @@ async function loadConsumer(origin: string, fileUrl: string): Promise<SourceMapC
       continue;
     }
 
-    const response = await fetch(url, { signal: AbortSignal.timeout(5000) }).catch(() => null);
+    const response = await fetchImpl(url, { signal: AbortSignal.timeout(5000) }).catch(() => null);
     if (!response?.ok) {
       consumers.set(url, null);
       continue;
@@ -69,7 +79,7 @@ async function loadConsumer(origin: string, fileUrl: string): Promise<SourceMapC
   return null;
 }
 
-function buildMapCandidates(origin: string, fileUrl: string): string[] {
+export function buildMapCandidates(origin: string, fileUrl: string): string[] {
   const url = new URL(fileUrl, origin);
   const basePath = `${url.pathname}.map`;
   const withSearch = url.search ? `${basePath}${url.search}` : basePath;
@@ -78,14 +88,18 @@ function buildMapCandidates(origin: string, fileUrl: string): string[] {
   return [`${origin}${withSearch}`, `${origin}${basePath}`];
 }
 
-function cleanSource(source: string): string {
+export function cleanSource(source: string): string {
   const decoded = decodeURIComponent(source.replace(/^file:\/\//, ""));
   const nodeModulesIndex = decoded.lastIndexOf("/node_modules/");
   if (nodeModulesIndex >= 0) return decoded.slice(nodeModulesIndex + 1);
   return decoded;
 }
 
-function snippetFor(consumer: SourceMapConsumer, source: string, line: number): string | undefined {
+export function snippetFor(
+  consumer: SourceMapConsumer,
+  source: string,
+  line: number,
+): string | undefined {
   const content = consumer.sourceContentFor(source, true);
   if (!content) return undefined;
 

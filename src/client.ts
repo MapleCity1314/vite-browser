@@ -6,13 +6,43 @@ import { fileURLToPath } from "node:url";
 import { socketPath, pidFile } from "./paths.js";
 
 export type Response = { ok: true; data?: unknown } | { ok: false; error: string };
+export type ClientDeps = {
+  socketPath: string;
+  pidFile: string;
+  existsSync: typeof existsSync;
+  readFileSync: typeof readFileSync;
+  rmSync: typeof rmSync;
+  processKill: typeof process.kill;
+  spawn: typeof spawn;
+  connect: () => Promise<Socket>;
+  sleep: typeof sleep;
+  daemonPath: string;
+};
+
+export function createClientDeps(): ClientDeps {
+  const ext = import.meta.url.endsWith(".ts") ? ".ts" : ".js";
+  const daemonPath = fileURLToPath(new URL(`./daemon${ext}`, import.meta.url));
+  return {
+    socketPath,
+    pidFile,
+    existsSync,
+    readFileSync,
+    rmSync,
+    processKill: process.kill.bind(process),
+    spawn,
+    connect,
+    sleep,
+    daemonPath,
+  };
+}
 
 export async function send(
   action: string,
   payload: Record<string, unknown> = {},
 ): Promise<Response> {
-  await ensureDaemon();
-  const socket = await connect();
+  const deps = createClientDeps();
+  await ensureDaemon(deps);
+  const socket = await deps.connect();
   const id = String(Date.now());
   socket.write(JSON.stringify({ id, action, ...payload }) + "\n");
   const line = await readLine(socket);
@@ -20,38 +50,36 @@ export async function send(
   return JSON.parse(line);
 }
 
-async function ensureDaemon() {
-  if (daemonAlive() && (await connect().then(ok, no))) return;
+export async function ensureDaemon(deps: ClientDeps) {
+  if (daemonAlive(deps) && (await deps.connect().then(ok, no))) return;
 
-  const ext = import.meta.url.endsWith(".ts") ? ".ts" : ".js";
-  const daemon = fileURLToPath(new URL(`./daemon${ext}`, import.meta.url));
-  const child = spawn(process.execPath, [daemon], {
+  const child = deps.spawn(process.execPath, [deps.daemonPath], {
     detached: true,
     stdio: "ignore",
   });
   child.unref();
 
   for (let i = 0; i < 50; i++) {
-    if (await connect().then(ok, no)) return;
-    await sleep(100);
+    if (await deps.connect().then(ok, no)) return;
+    await deps.sleep(100);
   }
-  throw new Error(`daemon failed to start (${socketPath})`);
+  throw new Error(`daemon failed to start (${deps.socketPath})`);
 }
 
-function daemonAlive() {
-  if (!existsSync(pidFile)) return false;
-  const pid = Number(readFileSync(pidFile, "utf-8"));
+export function daemonAlive(deps: Pick<ClientDeps, "existsSync" | "pidFile" | "readFileSync" | "processKill" | "rmSync" | "socketPath">) {
+  if (!deps.existsSync(deps.pidFile)) return false;
+  const pid = Number(deps.readFileSync(deps.pidFile, "utf-8"));
   try {
-    process.kill(pid, 0);
+    deps.processKill(pid, 0);
     return true;
   } catch {
-    rmSync(pidFile, { force: true });
-    removeSocketFile();
+    deps.rmSync(deps.pidFile, { force: true });
+    removeSocketFile(deps.socketPath, deps.rmSync);
     return false;
   }
 }
 
-function connect(): Promise<Socket> {
+export function connect(): Promise<Socket> {
   return new Promise((resolve, reject) => {
     const socket = netConnect(socketPath);
     socket.once("connect", () => resolve(socket));
@@ -59,10 +87,10 @@ function connect(): Promise<Socket> {
   });
 }
 
-function readLine(socket: Socket): Promise<string> {
+export function readLine(socket: Pick<Socket, "on">): Promise<string> {
   return new Promise((resolve, reject) => {
     let buffer = "";
-    socket.on("data", (chunk) => {
+    socket.on("data", (chunk: Buffer | string) => {
       buffer += chunk;
       const newline = buffer.indexOf("\n");
       if (newline >= 0) resolve(buffer.slice(0, newline));
@@ -71,16 +99,19 @@ function readLine(socket: Socket): Promise<string> {
   });
 }
 
-function ok(s: Socket) {
+export function ok(s: Pick<Socket, "destroy">) {
   s.destroy();
   return true;
 }
 
-function no() {
+export function no() {
   return false;
 }
 
-function removeSocketFile() {
+export function removeSocketFile(
+  path: string,
+  removeFile: typeof rmSync = rmSync,
+) {
   if (process.platform === "win32") return;
-  rmSync(socketPath, { force: true });
+  removeFile(path, { force: true });
 }

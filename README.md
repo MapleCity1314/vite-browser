@@ -1,10 +1,40 @@
 # vite-browser
 
-`vite-browser` is a debugging toolchain for Vite apps:
+`vite-browser` is a runtime diagnostics toolchain for Vite applications.
+
+It gives agents and developers structured access to:
+
+- Vue, React, and Svelte runtime state
+- Vite HMR activity and runtime health
+- module graph snapshots and diffs
+- mapped error output with optional source snippets
+- network, logs, screenshots, and page evaluation
+
+It ships in two forms:
+
 - Agent Skill: scenario-based debugging workflows for coding assistants
-- CLI Runtime (`@presto1314w/vite-devtools-browser`): structured inspection of Vue/React/Svelte runtime state
+- CLI Runtime (`@presto1314w/vite-devtools-browser`): structured shell commands for local Vite debugging
 
 Current documented baseline: `v0.1.4`.
+
+## Why vite-browser
+
+Most browser CLIs are optimized for automation. Most framework devtools are optimized for humans in a GUI.
+
+`vite-browser` is optimized for structured Vite runtime debugging:
+
+- it can inspect framework state like a devtools bridge
+- it can explain Vite-specific behavior like HMR updates and module graph changes
+- it returns structured text that AI agents can consume directly in loops
+
+## Positioning
+
+| Tool | Best for | Notable gap compared with `vite-browser` |
+| --- | --- | --- |
+| `agent-browser` | general browser automation | not focused on Vite runtime diagnostics |
+| `next-browser` | Next.js + React debugging | not designed as a Vite runtime tool |
+| `vite-plugin-vue-mcp` | Vue MCP integration inside Vite | plugin/MCP-first, not a standalone diagnostics CLI |
+| `vite-browser` | Vite runtime diagnostics for agents and developers | browser lifecycle coverage still being expanded |
 
 ## Install
 
@@ -39,6 +69,31 @@ vite-browser vite module-graph trace --limit 50
 vite-browser errors --mapped --inline-source
 vite-browser network
 vite-browser close
+```
+
+## What It Looks Like
+
+```bash
+$ vite-browser vite runtime
+# Vite Runtime
+URL: http://localhost:5173/
+Framework: vue
+Vite Client: loaded
+HMR Socket: open
+Error Overlay: none
+Tracked HMR Events: 3
+
+$ vite-browser vite hmr trace --limit 5
+# HMR Trace
+[12:34:10] connected [vite] connected.
+[12:34:15] update /src/App.vue
+
+$ vite-browser errors --mapped --inline-source
+Failed to resolve import "./missing"
+
+# Mapped Stack
+- http://localhost:5173/src/main.ts:12:4 -> /src/main.ts:12:4
+  12 | import "./missing"
 ```
 
 ## Core Capabilities
@@ -123,6 +178,10 @@ pnpm test:coverage
 pnpm test:evals
 pnpm test:evals:e2e
 ```
+
+## Discovery
+
+If you want to introduce the project to new users, start with the launch kit in [docs/launch-kit.md](./docs/launch-kit.md).
 
 ## Requirements
 

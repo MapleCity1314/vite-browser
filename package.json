@@ -1,8 +1,22 @@
 {
   "name": "@presto1314w/vite-devtools-browser",
   "version": "0.1.4",
-  "description": "CLI for programmatic access to Vue/React DevTools in Vite applications",
+  "description": "Runtime diagnostics CLI for Vite apps with Vue/React/Svelte DevTools, HMR tracing, module graph diff, and mapped errors",
   "license": "MIT",
+  "keywords": [
+    "vite",
+    "devtools",
+    "debugging",
+    "runtime-diagnostics",
+    "hmr",
+    "module-graph",
+    "sourcemap",
+    "vue",
+    "react",
+    "svelte",
+    "cli",
+    "ai-agents"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/MapleCity1314/vite-browser.git"

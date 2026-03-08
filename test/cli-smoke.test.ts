@@ -44,6 +44,88 @@ describe("cli smoke", () => {
     expect(res.code).toBe(0);
     expect(res.stdout.trim()).toBe("react@19.0.0");
   });
+
+  it("sends vite runtime command through socket protocol", async () => {
+    const session = `test-${process.pid}-${Date.now()}-runtime`;
+    const { server, pidFile, socketPath } = await startFakeDaemon(session);
+
+    resources.push(() => {
+      server.close();
+      rmSync(pidFile, { force: true });
+      if (process.platform !== "win32") rmSync(socketPath, { force: true });
+    });
+
+    const res = await runCli(["vite", "runtime"], { VITE_BROWSER_SESSION: session });
+    expect(res.code).toBe(0);
+    expect(res.stdout.trim()).toContain("# Vite Runtime");
+  });
+
+  it("sends mapped errors command through socket protocol", async () => {
+    const session = `test-${process.pid}-${Date.now()}-errors`;
+    const { server, pidFile, socketPath } = await startFakeDaemon(session);
+
+    resources.push(() => {
+      server.close();
+      rmSync(pidFile, { force: true });
+      if (process.platform !== "win32") rmSync(socketPath, { force: true });
+    });
+
+    const res = await runCli(["errors", "--mapped"], { VITE_BROWSER_SESSION: session });
+    expect(res.code).toBe(0);
+    expect(res.stdout.trim()).toContain("# Mapped Stack");
+  });
+
+  it("sends mapped errors with inline source option", async () => {
+    const session = `test-${process.pid}-${Date.now()}-errors-inline`;
+    const { server, pidFile, socketPath } = await startFakeDaemon(session);
+
+    resources.push(() => {
+      server.close();
+      rmSync(pidFile, { force: true });
+      if (process.platform !== "win32") rmSync(socketPath, { force: true });
+    });
+
+    const res = await runCli(["errors", "--mapped", "--inline-source"], {
+      VITE_BROWSER_SESSION: session,
+    });
+    expect(res.code).toBe(0);
+    expect(res.stdout.trim()).toContain("# Mapped Stack");
+    expect(res.stdout.trim()).toContain("12 | const boom = true");
+  });
+
+  it("sends module graph command through socket protocol", async () => {
+    const session = `test-${process.pid}-${Date.now()}-module-graph`;
+    const { server, pidFile, socketPath } = await startFakeDaemon(session);
+
+    resources.push(() => {
+      server.close();
+      rmSync(pidFile, { force: true });
+      if (process.platform !== "win32") rmSync(socketPath, { force: true });
+    });
+
+    const res = await runCli(["vite", "module-graph", "--filter", "/src/", "--limit", "5"], {
+      VITE_BROWSER_SESSION: session,
+    });
+    expect(res.code).toBe(0);
+    expect(res.stdout.trim()).toContain("# Vite Module Graph");
+  });
+
+  it("sends module graph trace command through socket protocol", async () => {
+    const session = `test-${process.pid}-${Date.now()}-module-graph-trace`;
+    const { server, pidFile, socketPath } = await startFakeDaemon(session);
+
+    resources.push(() => {
+      server.close();
+      rmSync(pidFile, { force: true });
+      if (process.platform !== "win32") rmSync(socketPath, { force: true });
+    });
+
+    const res = await runCli(["vite", "module-graph", "trace", "--filter", "/src/"], {
+      VITE_BROWSER_SESSION: session,
+    });
+    expect(res.code).toBe(0);
+    expect(res.stdout.trim()).toContain("# Vite Module Graph Trace");
+  });
 });
 
 async function startFakeDaemon(session: string) {
@@ -66,10 +148,27 @@ async function startFakeDaemon(session: string) {
         const line = buffer.slice(0, idx);
         buffer = buffer.slice(idx + 1);
         if (line) {
-          const cmd = JSON.parse(line) as { id: string; action: string };
+          const cmd = JSON.parse(line) as {
+            id: string;
+            action: string;
+            mode?: string;
+            inlineSource?: boolean;
+          };
           let payload: Record<string, unknown>;
           if (cmd.action === "detect") {
             payload = { id: cmd.id, ok: true, data: "react@19.0.0" };
+          } else if (cmd.action === "vite-runtime") {
+            payload = { id: cmd.id, ok: true, data: "# Vite Runtime\nURL: http://localhost:5173/" };
+          } else if (cmd.action === "errors") {
+            const mappedBody = cmd.inlineSource
+              ? "TypeError\n\n# Mapped Stack\n- a:1:1 -> src/main.ts:12:1\n  12 | const boom = true"
+              : "TypeError\n\n# Mapped Stack";
+            payload = { id: cmd.id, ok: true, data: mappedBody };
+          } else if (cmd.action === "vite-module-graph") {
+            payload =
+              cmd.mode === "trace"
+                ? { id: cmd.id, ok: true, data: "# Vite Module Graph Trace\nAdded: 1, Removed: 0" }
+                : { id: cmd.id, ok: true, data: "# Vite Module Graph (loaded resources)" };
           } else {
             payload = { id: cmd.id, ok: false, error: `unsupported: ${cmd.action}` };
           }

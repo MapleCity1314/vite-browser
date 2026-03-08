@@ -6,6 +6,7 @@ import * as vueDevtools from "./vue/devtools.js";
 import * as reactDevtools from "./react/devtools.js";
 import * as svelteDevtools from "./svelte/devtools.js";
 import * as networkLog from "./network.js";
+import { resolveViaSourceMap } from "./sourcemap.js";
 
 const extensionPath =
   process.env.REACT_DEVTOOLS_EXTENSION ??
@@ -23,7 +24,12 @@ let extensionModeDisabled = false;
 
 const consoleLogs: string[] = [];
 const MAX_LOGS = 200;
+const MAX_HMR_EVENTS = 500;
 let lastReactSnapshot: reactDevtools.ReactNode[] = [];
+type HmrEventType = "connecting" | "connected" | "update" | "full-reload" | "error" | "log";
+type HmrEvent = { timestamp: number; type: HmrEventType; message: string; path?: string };
+const hmrEvents: HmrEvent[] = [];
+let lastModuleGraphUrls: string[] | null = null;
 
 export async function open(url: string | undefined) {
   const currentPage = await ensurePage();
@@ -48,6 +54,8 @@ export async function close() {
   page = null;
   framework = "unknown";
   consoleLogs.length = 0;
+  hmrEvents.length = 0;
+  lastModuleGraphUrls = null;
   networkLog.clear();
   lastReactSnapshot = [];
 }
@@ -124,7 +132,40 @@ function attachListeners(currentPage: Page) {
     const text = `[${msg.type()}] ${msg.text()}`;
     consoleLogs.push(text);
     if (consoleLogs.length > MAX_LOGS) consoleLogs.shift();
+
+    const viteMessage = msg.text();
+    if (!viteMessage.includes("[vite]")) return;
+
+    const event = parseViteLog(viteMessage);
+    hmrEvents.push(event);
+    if (hmrEvents.length > MAX_HMR_EVENTS) hmrEvents.shift();
   });
+}
+
+function parseViteLog(message: string): HmrEvent {
+  const lower = message.toLowerCase();
+  const event: HmrEvent = {
+    timestamp: Date.now(),
+    type: "log",
+    message,
+  };
+
+  if (lower.includes("connecting")) event.type = "connecting";
+  else if (lower.includes("connected")) event.type = "connected";
+  else if (lower.includes("hot updated")) event.type = "update";
+  else if (lower.includes("page reload")) event.type = "full-reload";
+  else if (
+    lower.includes("disconnected") ||
+    lower.includes("failed to connect") ||
+    lower.includes("connection lost") ||
+    lower.includes("error")
+  ) {
+    event.type = "error";
+  }
+
+  const hotUpdateMatch = message.match(/hot updated:\s*(.+)$/i);
+  if (hotUpdateMatch?.[1]) event.path = hotUpdateMatch[1].trim();
+  return event;
 }
 
 export async function goto(url: string) {
@@ -247,18 +288,231 @@ export async function viteRestart(): Promise<string> {
 export async function viteHMR(): Promise<string> {
   if (!page) throw new Error("browser not open");
 
-  return page.evaluate(() => {
-    const updates = (window as any).__vite_hmr_updates || [];
-    if (updates.length === 0) return "No HMR updates";
+  return viteHMRTrace("summary", 20);
+}
 
-    return updates
-      .slice(-20)
-      .map((u: any) => `${new Date(u.timestamp).toLocaleTimeString()} - ${u.path}`)
-      .join("\n");
+export async function viteRuntimeStatus(): Promise<string> {
+  if (!page) throw new Error("browser not open");
+
+  const runtime = await page.evaluate(() => {
+    const findViteClient = () => {
+      const scripts = Array.from(document.querySelectorAll("script[src]"));
+      return scripts.some((script) => script.getAttribute("src")?.includes("/@vite/client"));
+    };
+
+    const wsStateName = (wsState: number | undefined) => {
+      if (wsState == null) return "unknown";
+      if (wsState === 0) return "connecting";
+      if (wsState === 1) return "open";
+      if (wsState === 2) return "closing";
+      if (wsState === 3) return "closed";
+      return "unknown";
+    };
+
+    const hot = (window as any).__vite_hot;
+    const ws = hot?.ws || hot?.socket;
+
+    return {
+      url: location.href,
+      hasViteClient: findViteClient(),
+      wsState: wsStateName(ws?.readyState),
+      hasErrorOverlay: Boolean(document.querySelector("vite-error-overlay")),
+      timestamp: Date.now(),
+    };
+  });
+
+  const output: string[] = [];
+  output.push("# Vite Runtime");
+  output.push(`URL: ${runtime.url}`);
+  output.push(`Framework: ${framework}`);
+  output.push(`Vite Client: ${runtime.hasViteClient ? "loaded" : "not detected"}`);
+  output.push(`HMR Socket: ${runtime.wsState}`);
+  output.push(`Error Overlay: ${runtime.hasErrorOverlay ? "present" : "none"}`);
+  output.push(`Tracked HMR Events: ${hmrEvents.length}`);
+
+  const last = hmrEvents[hmrEvents.length - 1];
+  if (last) {
+    output.push(
+      `Last HMR Event: ${new Date(last.timestamp).toLocaleTimeString()} [${last.type}] ${last.message}`,
+    );
+  }
+
+  return output.join("\n");
+}
+
+export async function viteHMRTrace(mode: "summary" | "trace" | "clear", limit = 20): Promise<string> {
+  if (!page) throw new Error("browser not open");
+
+  if (mode === "clear") {
+    hmrEvents.length = 0;
+    return "cleared HMR trace";
+  }
+
+  if (hmrEvents.length === 0) {
+    const fallback = await page.evaluate(() => {
+      const updates = (window as any).__vite_hmr_updates || [];
+      return updates.slice(-20).map((u: any) => ({
+        timestamp: u.timestamp ?? Date.now(),
+        type: "update" as const,
+        message: u.path ? `[vite] hot updated: ${u.path}` : "[vite] hot updated",
+        path: u.path,
+      }));
+    });
+    if (fallback.length > 0) hmrEvents.push(...fallback);
+  }
+
+  if (hmrEvents.length === 0) return "No HMR updates";
+
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 200) : 20;
+  const recent = hmrEvents.slice(-safeLimit);
+
+  if (mode === "summary") {
+    const counts = recent.reduce<Record<string, number>>((acc, event) => {
+      acc[event.type] = (acc[event.type] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    const lines: string[] = ["# HMR Summary"];
+    lines.push(`Events considered: ${recent.length}`);
+    lines.push(
+      `Counts: ${Object.entries(counts)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(", ")}`,
+    );
+    const last = recent[recent.length - 1];
+    lines.push(
+      `Last: ${new Date(last.timestamp).toLocaleTimeString()} [${last.type}] ${last.path ?? last.message}`,
+    );
+    lines.push("\nUse `vite-browser vite hmr trace --limit <n>` for timeline details.");
+    return lines.join("\n");
+  }
+
+  return [
+    "# HMR Trace",
+    ...recent.map((event) => {
+      const detail = event.path ? `${event.path}` : event.message;
+      return `[${new Date(event.timestamp).toLocaleTimeString()}] ${event.type} ${detail}`;
+    }),
+  ].join("\n");
+}
+
+export async function viteModuleGraph(
+  filter?: string,
+  limit = 200,
+  mode: "snapshot" | "trace" | "clear" = "snapshot",
+): Promise<string> {
+  if (!page) throw new Error("browser not open");
+
+  if (mode === "clear") {
+    lastModuleGraphUrls = null;
+    return "cleared module-graph baseline";
+  }
+
+  const moduleRows = await collectModuleRows(page);
+  const currentUrls = moduleRows.map((row) => row.url);
+  const previousUrls = lastModuleGraphUrls ? new Set(lastModuleGraphUrls) : null;
+  const currentSet = new Set(currentUrls);
+  lastModuleGraphUrls = [...currentUrls];
+
+  const normalizedFilter = filter?.trim().toLowerCase();
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 500) : 200;
+
+  if (mode === "trace") {
+    if (!previousUrls) {
+      return "No module-graph baseline. Captured current snapshot; run `vite module-graph trace` again.";
+    }
+
+    const added = currentUrls.filter((url) => !previousUrls.has(url));
+    const removed = [...previousUrls].filter((url) => !currentSet.has(url));
+
+    const addedFiltered = normalizedFilter
+      ? added.filter((url) => url.toLowerCase().includes(normalizedFilter))
+      : added;
+    const removedFiltered = normalizedFilter
+      ? removed.filter((url) => url.toLowerCase().includes(normalizedFilter))
+      : removed;
+
+    const lines: string[] = [];
+    lines.push("# Vite Module Graph Trace");
+    lines.push(`Added: ${addedFiltered.length}, Removed: ${removedFiltered.length}`);
+    lines.push("");
+
+    lines.push("## Added");
+    if (addedFiltered.length === 0) lines.push("(none)");
+    else addedFiltered.slice(0, safeLimit).forEach((url) => lines.push(`+ ${url}`));
+
+    lines.push("");
+    lines.push("## Removed");
+    if (removedFiltered.length === 0) lines.push("(none)");
+    else removedFiltered.slice(0, safeLimit).forEach((url) => lines.push(`- ${url}`));
+
+    return lines.join("\n");
+  }
+
+  const filtered = moduleRows.filter((row) =>
+    normalizedFilter ? row.url.toLowerCase().includes(normalizedFilter) : true,
+  );
+  const limited = filtered.slice(0, safeLimit);
+
+  if (limited.length === 0) return "No module resources found";
+
+  const lines: string[] = [];
+  lines.push("# Vite Module Graph (loaded resources)");
+  lines.push(`Total: ${filtered.length}${filtered.length > limited.length ? ` (showing ${limited.length})` : ""}`);
+  lines.push("# idx initiator ms url");
+  lines.push("");
+  limited.forEach((row, idx) => {
+    lines.push(`${idx} ${row.initiator} ${row.durationMs}ms ${row.url}`);
+  });
+
+  return lines.join("\n");
+}
+
+async function collectModuleRows(page: Page): Promise<{ url: string; initiator: string; durationMs: number }[]> {
+  return page.evaluate(() => {
+    const isLikelyModuleUrl = (url: string) => {
+      if (!url) return false;
+      if (url.includes("/@vite/")) return true;
+      if (url.includes("/@id/")) return true;
+      if (url.includes("/src/")) return true;
+      if (url.includes("/node_modules/")) return true;
+      return /\.(mjs|cjs|js|jsx|ts|tsx|vue|css)(\?|$)/.test(url);
+    };
+
+    const scripts = Array.from(document.querySelectorAll("script[src]")).map(
+      (node) => (node as HTMLScriptElement).src,
+    );
+    const resources = performance
+      .getEntriesByType("resource")
+      .map((entry) => {
+        const item = entry as PerformanceResourceTiming;
+        return {
+          url: item.name,
+          initiator: item.initiatorType || "unknown",
+          durationMs: Number(item.duration.toFixed(1)),
+        };
+      })
+      .filter((entry) => isLikelyModuleUrl(entry.url));
+
+    const all = [
+      ...scripts
+        .filter((url) => isLikelyModuleUrl(url))
+        .map((url) => ({ url, initiator: "script-tag", durationMs: 0 })),
+      ...resources,
+    ];
+
+    const seen = new Set<string>();
+    const unique: { url: string; initiator: string; durationMs: number }[] = [];
+    for (const row of all) {
+      if (seen.has(row.url)) continue;
+      seen.add(row.url);
+      unique.push(row);
+    }
+    return unique;
   });
 }
 
-export async function errors(): Promise<string> {
+export async function errors(mapped = false, inlineSource = false): Promise<string> {
   if (!page) throw new Error("browser not open");
 
   const errorInfo = await page.evaluate(() => {
@@ -272,7 +526,13 @@ export async function errors(): Promise<string> {
   });
 
   if (!errorInfo) return "no errors";
-  return `${errorInfo.message ?? "Vite error"}\n\n${errorInfo.stack ?? ""}`.trim();
+
+  const raw = `${errorInfo.message ?? "Vite error"}\n\n${errorInfo.stack ?? ""}`.trim();
+  if (!mapped) return raw;
+
+  const origin = new URL(page.url()).origin;
+  const mappedStack = await mapStackTrace(raw, origin, inlineSource);
+  return mappedStack;
 }
 
 export async function logs(): Promise<string> {
@@ -296,4 +556,28 @@ export async function evaluate(script: string): Promise<string> {
 export async function network(idx?: number): Promise<string> {
   if (idx == null) return networkLog.format();
   return networkLog.detail(idx);
+}
+
+async function mapStackTrace(stack: string, origin: string, inlineSource = false): Promise<string> {
+  const locationRegex = /(https?:\/\/[^\s)]+):(\d+):(\d+)/g;
+  const matches = Array.from(stack.matchAll(locationRegex));
+  if (matches.length === 0) return stack;
+
+  const mappedLines: string[] = [];
+  for (const match of matches) {
+    const fileUrl = match[1];
+    const line = Number.parseInt(match[2], 10);
+    const column = Number.parseInt(match[3], 10);
+    if (!Number.isFinite(line) || !Number.isFinite(column)) continue;
+
+    const mapped = await resolveViaSourceMap(origin, fileUrl, line, column, inlineSource);
+    if (!mapped) continue;
+    mappedLines.push(`- ${fileUrl}:${line}:${column} -> ${mapped.file}:${mapped.line}:${mapped.column}`);
+    if (inlineSource && mapped.snippet) {
+      mappedLines.push(`  ${mapped.snippet}`);
+    }
+  }
+
+  if (mappedLines.length === 0) return stack;
+  return `${stack}\n\n# Mapped Stack\n${mappedLines.join("\n")}`;
 }

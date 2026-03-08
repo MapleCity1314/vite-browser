@@ -100,12 +100,50 @@ if (cmd === "vite" && arg === "restart") {
 }
 
 if (cmd === "vite" && arg === "hmr") {
-  const res = await send("vite-hmr");
+  const sub = args[2];
+  if (sub === "clear") {
+    const res = await send("vite-hmr", { mode: "clear" });
+    exit(res, res.ok && res.data ? String(res.data) : "cleared HMR trace");
+  }
+
+  if (sub === "trace") {
+    const limitIdx = args.indexOf("--limit");
+    const limit = limitIdx >= 0 ? Number.parseInt(args[limitIdx + 1] ?? "20", 10) : 20;
+    const res = await send("vite-hmr", { mode: "trace", limit });
+    exit(res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  const res = await send("vite-hmr", { mode: "summary", limit: 20 });
+  exit(res, res.ok && res.data ? String(res.data) : "");
+}
+
+if (cmd === "vite" && arg === "runtime") {
+  const res = await send("vite-runtime");
+  exit(res, res.ok && res.data ? String(res.data) : "");
+}
+
+if (cmd === "vite" && arg === "module-graph") {
+  const sub = args[2];
+  const filterIdx = args.indexOf("--filter");
+  const limitIdx = args.indexOf("--limit");
+  const filter = filterIdx >= 0 ? args[filterIdx + 1] : undefined;
+  const limit = limitIdx >= 0 ? Number.parseInt(args[limitIdx + 1] ?? "200", 10) : 200;
+  if (sub === "clear") {
+    const res = await send("vite-module-graph", { mode: "clear" });
+    exit(res, res.ok && res.data ? String(res.data) : "cleared module-graph baseline");
+  }
+  if (sub === "trace") {
+    const res = await send("vite-module-graph", { mode: "trace", filter, limit });
+    exit(res, res.ok && res.data ? String(res.data) : "");
+  }
+  const res = await send("vite-module-graph", { mode: "snapshot", filter, limit });
   exit(res, res.ok && res.data ? String(res.data) : "");
 }
 
 if (cmd === "errors") {
-  const res = await send("errors");
+  const mapped = args.includes("--mapped");
+  const inlineSource = args.includes("--inline-source");
+  const res = await send("errors", { mapped, inlineSource });
   exit(res, res.ok && res.data ? String(res.data) : "no errors");
 }
 
@@ -176,8 +214,18 @@ SVELTE COMMANDS
 
 VITE COMMANDS
   vite restart                        Restart Vite dev server
-  vite hmr                            Show HMR status
+  vite hmr                            Show HMR summary
+  vite hmr trace [--limit <n>]        Show HMR timeline
+  vite hmr clear                      Clear tracked HMR timeline
+  vite runtime                        Show Vite runtime status
+  vite module-graph [--filter <txt>] [--limit <n>]
+                                     Show loaded Vite module resources
+  vite module-graph trace [--filter <txt>] [--limit <n>]
+                                     Show module additions/removals since baseline
+  vite module-graph clear             Clear module-graph baseline
   errors                              Show build/runtime errors
+  errors --mapped                     Show errors with source-map mapping
+  errors --mapped --inline-source     Include mapped source snippets
   logs                                Show dev server logs
 
 UTILITIES

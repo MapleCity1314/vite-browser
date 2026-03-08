@@ -49,6 +49,11 @@ type Cmd = {
   id?: string;
   script?: string;
   idx?: number;
+  mode?: "summary" | "trace" | "clear" | "snapshot";
+  limit?: number;
+  filter?: string;
+  mapped?: boolean;
+  inlineSource?: boolean;
   cookies?: { name: string; value: string }[];
   domain?: string;
   store?: string;
@@ -119,11 +124,23 @@ async function run(cmd: Cmd) {
     return { ok: true, data };
   }
   if (cmd.action === "vite-hmr") {
-    const data = await browser.viteHMR();
+    const hmrMode =
+      cmd.mode === "trace" || cmd.mode === "clear" ? cmd.mode : "summary";
+    const data = await browser.viteHMRTrace(hmrMode, cmd.limit ?? 20);
+    return { ok: true, data };
+  }
+  if (cmd.action === "vite-runtime") {
+    const data = await browser.viteRuntimeStatus();
+    return { ok: true, data };
+  }
+  if (cmd.action === "vite-module-graph") {
+    const graphMode =
+      cmd.mode === "trace" || cmd.mode === "clear" ? cmd.mode : "snapshot";
+    const data = await browser.viteModuleGraph(cmd.filter, cmd.limit ?? 200, graphMode);
     return { ok: true, data };
   }
   if (cmd.action === "errors") {
-    const data = await browser.errors();
+    const data = await browser.errors(Boolean(cmd.mapped), Boolean(cmd.inlineSource));
     return { ok: true, data };
   }
   if (cmd.action === "logs") {

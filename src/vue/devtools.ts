@@ -204,12 +204,49 @@ export async function getComponentDetails(page: Page, id: string): Promise<strin
  */
 export async function getPiniaStores(page: Page, storeName?: string): Promise<string> {
   const result = await page.evaluate((name) => {
+    const safeJson = (value: unknown): string => {
+      if (typeof value === "function") return "[Function]";
+      if (typeof value === "bigint") return value.toString();
+      const seen = new WeakSet<object>();
+      try {
+        return JSON.stringify(value, (_, v) => {
+          if (typeof v === "function") return "[Function]";
+          if (typeof v === "bigint") return v.toString();
+          if (v && typeof v === "object") {
+            if (seen.has(v as object)) return "[Circular]";
+            seen.add(v as object);
+          }
+          return v;
+        });
+      } catch {
+        return String(value);
+      }
+    };
+
+    const hook = (window as any).__VUE_DEVTOOLS_GLOBAL_HOOK__;
+    const piniaFromApp = hook?.apps?.[0]?.config?.globalProperties?.$pinia;
+
     // Try to find Pinia instance
-    const pinia = (window as any).__PINIA__ || (window as any).pinia;
+    const pinia = (window as any).__PINIA__ || (window as any).pinia || piniaFromApp;
     if (!pinia) return "Pinia not found";
 
-    const stores = pinia._s || pinia.state?.value || {};
-    const storeKeys = Object.keys(stores);
+    // Pinia v3 uses Map for _s, older integrations can expose plain objects.
+    const storesById: Record<string, any> = {};
+    const registry = pinia._s;
+    if (registry instanceof Map) {
+      registry.forEach((store, id) => {
+        storesById[String(id)] = store;
+      });
+    } else if (registry && typeof registry === "object") {
+      for (const [id, store] of Object.entries(registry)) {
+        storesById[id] = store;
+      }
+    }
+
+    const stateById = pinia.state?.value && typeof pinia.state.value === "object" ? pinia.state.value : {};
+    const storeKeys = Array.from(
+      new Set([...Object.keys(storesById), ...Object.keys(stateById)]),
+    );
 
     if (storeKeys.length === 0) return "No Pinia stores found";
 
@@ -226,30 +263,40 @@ export async function getPiniaStores(page: Page, storeName?: string): Promise<st
     }
 
     // Get specific store
-    const store = stores[name];
-    if (!store) return `Store '${name}' not found`;
+    const store = storesById[name] ?? null;
+    const stateOnly = (stateById as Record<string, unknown>)[name];
+    if (!store && !stateOnly) return `Store '${name}' not found`;
 
     output.push(`# Pinia Store: ${name}\n`);
 
     // State
-    const state = store.$state || store.state || store;
+    const state = store?.$state || store?.state || stateOnly || store;
     if (state && typeof state === 'object') {
       output.push("## State");
       for (const [key, value] of Object.entries(state)) {
         if (key.startsWith('$')) continue; // Skip Pinia internals
-        output.push(`  ${key}: ${JSON.stringify(value)}`);
+        output.push(`  ${key}: ${safeJson(value)}`);
       }
       output.push("");
     }
 
     // Getters
-    const getters = store._getters || {};
-    if (Object.keys(getters).length > 0) {
+    const getterNames: string[] = [];
+    const rawGetters = store?._getters;
+    if (Array.isArray(rawGetters)) {
+      getterNames.push(...rawGetters.map((g: unknown) => String(g)));
+    } else if (rawGetters instanceof Set) {
+      getterNames.push(...Array.from(rawGetters).map((g) => String(g)));
+    } else if (rawGetters && typeof rawGetters === "object") {
+      getterNames.push(...Object.keys(rawGetters));
+    }
+
+    if (getterNames.length > 0) {
       output.push("## Getters");
-      for (const key of Object.keys(getters)) {
+      for (const key of getterNames) {
         try {
           const value = store[key];
-          output.push(`  ${key}: ${JSON.stringify(value)}`);
+          output.push(`  ${key}: ${safeJson(value)}`);
         } catch {
           output.push(`  ${key}: [Error]`);
         }

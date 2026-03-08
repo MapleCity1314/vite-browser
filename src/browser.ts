@@ -19,6 +19,7 @@ const installHook = hasReactExtension
 let context: BrowserContext | null = null;
 let page: Page | null = null;
 let framework: "vue" | "react" | "svelte" | "unknown" = "unknown";
+let extensionModeDisabled = false;
 
 const consoleLogs: string[] = [];
 const MAX_LOGS = 200;
@@ -60,7 +61,15 @@ async function ensurePage(): Promise<Page> {
   if (!context) throw new Error("browser not open");
 
   if (!page || page.isClosed()) {
-    page = context.pages()[0] ?? (await context.newPage());
+    try {
+      page = context.pages()[0] ?? (await context.newPage());
+    } catch (error) {
+      if (!isClosedTargetError(error)) throw error;
+      await close();
+      extensionModeDisabled = true;
+      context = await launch();
+      page = context.pages()[0] ?? (await context.newPage());
+    }
     attachListeners(page);
     networkLog.attach(page);
   }
@@ -78,20 +87,29 @@ function contextUsable(current: BrowserContext | null): current is BrowserContex
   }
 }
 
+function isClosedTargetError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /Target page, context or browser has been closed/i.test(error.message);
+}
+
 async function launch(): Promise<BrowserContext> {
-  if (hasReactExtension && installHook) {
-    const ctx = await chromium.launchPersistentContext("", {
-      headless: false,
-      viewport: { width: 1280, height: 720 },
-      args: [
-        `--disable-extensions-except=${extensionPath}`,
-        `--load-extension=${extensionPath}`,
-        "--auto-open-devtools-for-tabs",
-      ],
-    });
-    await ctx.waitForEvent("serviceworker").catch(() => {});
-    await ctx.addInitScript(installHook);
-    return ctx;
+  if (hasReactExtension && installHook && !extensionModeDisabled) {
+    try {
+      const ctx = await chromium.launchPersistentContext("", {
+        headless: false,
+        viewport: { width: 1280, height: 720 },
+        args: [
+          `--disable-extensions-except=${extensionPath}`,
+          `--load-extension=${extensionPath}`,
+          "--auto-open-devtools-for-tabs",
+        ],
+      });
+      await ctx.waitForEvent("serviceworker").catch(() => {});
+      await ctx.addInitScript(installHook);
+      return ctx;
+    } catch {
+      extensionModeDisabled = true;
+    }
   }
 
   const browser = await chromium.launch({

@@ -17,6 +17,14 @@ It ships in two forms:
 
 Current documented baseline: `v0.1.4`.
 
+## Built For Agents
+
+`vite-browser` is designed for agent workflows as much as local debugging.
+
+Models do not work well with a DevTools panel that has to be visually inspected step by step. They work much better when runtime signals are exposed as structured commands that can be queried, compared, and chained in a loop. `vite-browser` turns framework state, Vite runtime status, HMR activity, module graph changes, mapped errors, logs, and network activity into terminal output that an agent can actually reason about.
+
+Under the hood, each command is a one-shot request against a long-lived browser daemon. That keeps the CLI simple for users while letting agent loops inspect a running app repeatedly without having to manage browser lifecycle on every step.
+
 ## Why vite-browser
 
 Most browser CLIs are optimized for automation. Most framework devtools are optimized for humans in a GUI.

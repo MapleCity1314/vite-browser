@@ -12,6 +12,14 @@ This file collects short and long-form copy for introducing `vite-browser`.
 
 This makes it useful both for local debugging and for AI coding agents that need machine-readable insight into what a Vite app is doing at runtime.
 
+## Agent-Focused Positioning
+
+`vite-browser` is built for agent loops, not only for manual terminal use.
+
+The key idea is simple: models do much better when runtime state is available as structured shell output instead of hidden behind a visual DevTools workflow. `vite-browser` exposes framework state, Vite runtime health, HMR signals, module graph diffs, mapped errors, logs, and network activity as commands that can be queried repeatedly and reasoned about step by step.
+
+Its command model is also agent-friendly. Each CLI call is a stateless request against a long-lived browser daemon, so agents can iterate on a running app without having to rebuild browser lifecycle management for every step.
+
 ## GitHub / Release Blurb
 
 `vite-browser` is a debugging toolchain for Vite apps with a strong focus on runtime diagnostics. It combines framework inspection for Vue/React/Svelte with Vite-aware signals like HMR traces, module graph diffs, source-mapped errors, network logs, screenshots, and eval support.
@@ -37,6 +45,8 @@ Repo: https://github.com/MapleCity1314/vite-browser
 I built `vite-browser`, a runtime diagnostics CLI for Vite applications.
 
 The goal is simple: most browser tools focus on automation, and most devtools focus on GUI inspection. I wanted a tool that exposes Vite runtime behavior and framework state as structured shell output that both humans and AI agents can use directly.
+
+It is particularly useful for agent workflows. A model can query structured runtime output and compare results across steps much more reliably than it can navigate a visual DevTools panel. `vite-browser` keeps that loop simple by exposing each inspection step as a CLI command backed by a persistent browser daemon.
 
 Current capabilities include:
 

@@ -1,14 +1,20 @@
 # vite-browser
 
-Agent Skill for AI coding assistants to debug Vite applications with structured access to Vue/React/Svelte runtime state. The CLI is the supporting runtime used by the skill for component trees, store/router inspection, logs, network traces, screenshots, and scripted page evaluation.
+`vite-browser` is a debugging toolchain for Vite apps:
+- Agent Skill: scenario-based debugging workflows for coding assistants
+- CLI Runtime (`@presto1314w/vite-devtools-browser`): structured inspection of Vue/React/Svelte runtime state
 
-## Skills
+Current documented baseline: `v0.1.3`.
+
+## Install
+
+### Install Skill
 
 ```bash
 npx skills add MapleCity1314/vite-browser
 ```
 
-## CLI Installation (Optional)
+### Install CLI
 
 ```bash
 npm install -g @presto1314w/vite-devtools-browser
@@ -18,100 +24,111 @@ npx playwright install chromium
 ## Quick Start
 
 ```bash
-# Start your Vite dev server
-cd my-vue-app
+# terminal A: start Vite app
+cd my-app
 npm run dev
 
-# In another terminal
+# terminal B: inspect runtime
 vite-browser open http://localhost:5173
-vite-browser detect              # vue@3.5.29 / react@19.x / svelte@x
-vite-browser vue tree            # Vue component tree
-vite-browser react tree          # React component tree
-vite-browser svelte tree         # Svelte component tree (best effort)
-vite-browser screenshot          # Take screenshot
-vite-browser logs                # Console logs
-vite-browser network             # Network requests
+vite-browser detect
+vite-browser vue tree
+vite-browser vue pinia
+vite-browser vite runtime
+vite-browser vite hmr trace --limit 20
+vite-browser vite module-graph trace --limit 50
+vite-browser errors --mapped --inline-source
+vite-browser network
 vite-browser close
 ```
 
-## Features
+## Core Capabilities
 
-- Framework Detection: Auto-detect Vue, React, Svelte and versions (best effort)
-- Vue DevTools: Component tree, props, state, computed properties, source locations
-- React DevTools: Component tree + component inspection (props/hooks/state/context)
-- Svelte Support: Component tree + component detail inspection when runtime metadata is available
-- Pinia Integration: Inspect store state and getters
-- Vue Router: Current route, params, query, all routes
-- Network Monitoring: Track requests, headers, bodies, and response payloads
-- Console Logs: Capture console.log, warn, error, debug
-- Screenshots: Full-page PNG screenshots
-- JavaScript Evaluation: Run arbitrary JS in page context
-- Vite Integration: Error tracking, HMR monitoring
+- Framework detection: Vue/React/Svelte best-effort detection and version hinting
+- Vue runtime inspection: component tree/details, Pinia stores/getters, Vue Router state
+- React runtime inspection: component tree/details (props/state/hooks/context/source)
+- Svelte runtime inspection: component tree/details when metadata is available
+- Vite runtime diagnostics:
+  - runtime status summary
+  - HMR summary/timeline/clear
+  - module-graph snapshot/diff/clear
+  - source-mapped errors with optional inline source snippet
+- Debug utilities: console logs, network tracing, screenshot, page `eval`
 
-## Commands
+## Command Reference
 
-### Browser Control
+### Browser
+
 ```bash
-vite-browser open <url>           # Launch browser and navigate
-vite-browser close                # Close browser and daemon
-vite-browser goto <url>           # Navigate to URL
-vite-browser back                 # Go back
-vite-browser reload               # Reload page
+vite-browser open <url> [--cookies-json <file>]
+vite-browser close
+vite-browser goto <url>
+vite-browser back
+vite-browser reload
 ```
 
-### Framework Detection
+### Framework
+
 ```bash
-vite-browser detect               # Detect framework and version
+vite-browser detect
+vite-browser vue tree [id]
+vite-browser vue pinia [store]
+vite-browser vue router
+vite-browser react tree [id]
+vite-browser svelte tree [id]
 ```
 
-### Vue DevTools
+### Vite Runtime
+
 ```bash
-vite-browser vue tree             # Show component tree
-vite-browser vue tree <id>        # Inspect component details
-vite-browser vue pinia            # List all Pinia stores
-vite-browser vue pinia <store>    # Inspect specific store
-vite-browser vue router           # Show router information
+vite-browser vite restart
+vite-browser vite runtime
+vite-browser vite hmr
+vite-browser vite hmr trace [--limit <n>]
+vite-browser vite hmr clear
+vite-browser vite module-graph [--filter <txt>] [--limit <n>]
+vite-browser vite module-graph trace [--filter <txt>] [--limit <n>]
+vite-browser vite module-graph clear
+vite-browser errors
+vite-browser errors --mapped
+vite-browser errors --mapped --inline-source
 ```
 
-### React DevTools
+### Utilities
+
 ```bash
-vite-browser react tree           # Show React component tree
-vite-browser react tree <id>      # Inspect props/hooks/state/context/source
+vite-browser logs
+vite-browser network [idx]
+vite-browser screenshot
+vite-browser eval <script>
 ```
 
-### Svelte
+## Skill Packs
+
+The entry skill routes to specialized workflows:
+
+- `skills/vite-browser-core-debug/SKILL.md`
+- `skills/vite-browser-runtime-diagnostics/SKILL.md`
+- `skills/vite-browser-network-regression/SKILL.md`
+- `skills/vite-browser-release-smoke/SKILL.md`
+
+Router definition: [skills/SKILL.md](./skills/SKILL.md)
+
+## Local Development
+
 ```bash
-vite-browser svelte tree          # Show Svelte component tree
-vite-browser svelte tree <id>     # Inspect Svelte component details
+pnpm install
+pnpm build
+pnpm test
+pnpm test:coverage
+pnpm test:evals
+pnpm test:evals:e2e
 ```
-
-### Debugging
-```bash
-vite-browser screenshot           # Take full-page screenshot
-vite-browser eval <script>        # Run JavaScript in page
-vite-browser logs                 # Show console logs
-vite-browser errors               # Show Vite errors
-vite-browser network              # List network requests
-vite-browser network <idx>        # Inspect specific request
-```
-
-## Architecture
-
-- Daemon + Socket: Background process with socket communication
-- Playwright: Headed Chromium browser
-- One Browser, One Page: Single persistent browser instance
-- Auto-start: Daemon starts automatically on first command
 
 ## Requirements
 
-- Node.js 20+
-- Chromium (via Playwright)
-- Vite dev server running
-- Vue/React/Svelte app for framework-specific commands
-
-## Documentation
-
-See [SKILL.md](./skills/SKILL.md) for complete command reference and usage examples.
+- Node.js `>=20`
+- Chromium installed via Playwright
+- Running Vite dev server
 
 ## License
 

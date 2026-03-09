@@ -1,29 +1,30 @@
 ---
 name: vite-browser-runtime-diagnostics
 description: >-
-  Deep Vite runtime diagnostics for HMR instability, unexpected full reloads,
-  module churn, and stack trace mapping. Use this whenever users mention HMR
-  issues, refresh loops, hot-update regressions, or "can't locate source from
-  Vite error".
+  Deep Vite runtime diagnostics for recent hot-update regressions, HMR
+  instability, unexpected full reloads, module churn, stack trace mapping, and
+  "which recent update caused this" analysis. Use this whenever users mention
+  HMR issues, refresh loops, full reloads, recent edit broke page, or "can't
+  locate source from Vite error".
 ---
 
 # vite-browser-runtime-diagnostics
 
-Use this skill when standard component inspection is not enough and runtime
-behavior is the likely cause.
+Use this skill when runtime behavior is the likely cause. Prefer it over component inspection when timing and recent updates matter.
 
-## Primary checks
+## Standard sequence
 
 ```bash
 vite-browser vite runtime
-vite-browser vite hmr
+vite-browser errors --mapped --inline-source
+vite-browser correlate errors --mapped --window 5000
+vite-browser diagnose hmr --limit 50
 vite-browser vite hmr trace --limit 50
 vite-browser vite module-graph --limit 200
 vite-browser vite module-graph trace --limit 200
-vite-browser correlate errors --mapped --window 5000
-vite-browser diagnose hmr --limit 50
-vite-browser errors --mapped --inline-source
 ```
+
+Use `diagnose hmr` as the default triage command after collecting mapped errors.
 
 ## Diagnostic patterns
 
@@ -42,31 +43,35 @@ vite-browser errors --mapped --inline-source
 4. `vite module-graph trace`
 5. Inspect unexpectedly added/removed modules.
 
+### Recent update caused failure
+
+1. Reproduce once after the failure.
+2. `correlate errors --mapped --window 5000`
+3. Identify whether the current error overlaps with recent HMR-updated modules.
+4. Inspect the highest-confidence matching module first.
+
 ### Stack mapping
 
 1. `errors --mapped`
 2. If mapping is still ambiguous, run `errors --mapped --inline-source`.
 3. Use mapped file:line as the fix entrypoint.
 
-### Error correlation
-
-1. Reproduce once.
-2. `correlate errors --mapped --window 5000`
-3. Check whether the current error overlaps with recent HMR-updated modules.
-
 ### Automated diagnosis
 
 1. `diagnose hmr --limit 50`
 2. Review rule hits for `missing-module`, `circular-dependency`, `hmr-websocket-closed`, and `repeated-full-reload`.
-3. Use the highest-confidence failure first.
+3. Use the highest-confidence `fail` item first.
+4. Treat `warn` items as supporting evidence, not primary root cause.
 
 ## Output format
 
 Always provide:
 
 1. Runtime state summary (`vite runtime`)
-2. HMR timeline conclusion
-3. Module-graph delta conclusion
+2. Most likely runtime cause
+3. Diagnosis hits with status and confidence
 4. Error/HMR correlation conclusion
-5. Final mapped source location(s)
-6. Suggested fix order
+5. HMR timeline conclusion
+6. Module-graph delta conclusion
+7. Final mapped source location(s)
+8. Suggested fix order

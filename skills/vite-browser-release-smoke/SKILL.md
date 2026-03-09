@@ -3,7 +3,7 @@ name: vite-browser-release-smoke
 description: >-
   Pre-release smoke verification workflow for Vite apps with vite-browser. Use
   this whenever users ask for final checks before merge/release, including core
-  path validation, runtime sanity, and evidence-based sign-off.
+  path validation, runtime sanity, HMR diagnosis, and evidence-based sign-off.
 ---
 
 # vite-browser-release-smoke
@@ -19,6 +19,7 @@ Validate:
 3. Core user paths load and navigate
 4. Network has no critical failures
 5. HMR/runtime sanity on one edit cycle
+6. No obvious v0.2 diagnosis hit before sign-off
 
 ## Command template
 
@@ -45,6 +46,9 @@ Runtime sanity:
 ```bash
 vite-browser vite hmr clear
 # reproduce one change
+vite-browser errors --mapped --inline-source
+vite-browser correlate errors --mapped --window 5000
+vite-browser diagnose hmr --limit 50
 vite-browser vite hmr trace --limit 20
 vite-browser vite module-graph clear
 vite-browser vite module-graph
@@ -57,6 +61,6 @@ Return:
 
 1. `PASS`/`FAIL` by check item
 2. Blocking issues list (if any)
-3. Evidence commands for each failed item
-4. Final recommendation: `go` or `no-go`
-
+3. Diagnosis hits and confidence, if any
+4. Evidence commands for each failed item
+5. Final recommendation: `go` or `no-go`

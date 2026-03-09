@@ -2,31 +2,39 @@
 name: vite-browser
 description: >-
   Skill router for vite-browser capability packs. Use this whenever users ask
-  to debug Vite apps, and then delegate to the most specific skill:
-  core-debug, runtime-diagnostics, network-regression, or release-smoke.
+  to debug a Vite app, inspect runtime behavior, investigate recent hot-update
+  breakage, trace network regressions, or run pre-release verification. Route
+  to core-debug, runtime-diagnostics, network-regression, or release-smoke
+  based on the dominant failure mode.
 ---
 
 # vite-browser
 
-This is the entry skill that routes to focused skills by scenario.
+Route to one focused skill as early as possible. Do not run all skills by default.
 
 ## Skill routing
 
-1. General app bug, component/state confusion:
+1. General app bug, component/state confusion, unknown broken UI:
    - `skills/vite-browser-core-debug/SKILL.md`
-2. HMR/reload loops, runtime instability, stack mapping:
+2. HMR/reload loops, recent code change caused failure, full reloads, stack mapping, "which update caused this":
    - `skills/vite-browser-runtime-diagnostics/SKILL.md`
-3. API/data mismatch, request failures:
+3. API/data mismatch, request failures, wrong payload, auth/cookie/CORS regressions:
    - `skills/vite-browser-network-regression/SKILL.md`
 4. Pre-merge/pre-release final verification:
    - `skills/vite-browser-release-smoke/SKILL.md`
 
-If multiple conditions apply, run in this order:
+## Routing rules
 
-1. `core-debug`
-2. `runtime-diagnostics`
-3. `network-regression`
-4. `release-smoke`
+1. Start with `core-debug` when the symptom is broad or unclear.
+2. Switch immediately to `runtime-diagnostics` if the issue is tied to a recent edit, HMR, refresh, reload, or Vite runtime instability.
+3. Switch to `network-regression` if the main symptom is bad data, missing data, request failure, or request/response mismatch.
+4. Use `release-smoke` only for final validation or sign-off, not root-cause discovery.
+
+If two skills apply:
+
+1. `core-debug` -> `runtime-diagnostics`
+2. `core-debug` -> `network-regression`
+3. `runtime-diagnostics` -> `network-regression` only if runtime diagnosis suggests the visible failure is downstream of an API problem
 
 ---
 
@@ -39,7 +47,7 @@ vite-browser errors
 vite-browser logs
 ```
 
-Then continue with the selected specialized skill.
+Then continue with the selected specialized skill and stop using the router skill.
 
 ---
 
@@ -66,7 +74,7 @@ vite-browser react tree [id]
 vite-browser svelte tree [id]
 ```
 
-### Runtime
+### Runtime and Diagnosis
 
 ```bash
 vite-browser vite runtime
@@ -78,6 +86,7 @@ vite-browser vite module-graph trace [--filter <txt>] [--limit <n>]
 vite-browser vite module-graph clear
 vite-browser errors --mapped --inline-source
 vite-browser correlate errors [--window <ms>]
+vite-browser correlate errors --mapped --inline-source
 vite-browser diagnose hmr [--window <ms>] [--limit <n>]
 ```
 

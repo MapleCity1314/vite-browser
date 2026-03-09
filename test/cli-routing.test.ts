@@ -126,6 +126,23 @@ describe("cli routing", () => {
     });
   });
 
+  it("routes correlate errors with window flag", async () => {
+    const session = `routing-${process.pid}-${Date.now()}-correlate`;
+    const daemon = await startInspectDaemon(session);
+    registerCleanup(daemon);
+
+    const res = await runCli(
+      ["correlate", "errors", "--mapped", "--window", "9000"],
+      { VITE_BROWSER_SESSION: session },
+    );
+    expect(res.code).toBe(0);
+    expect(daemon.received[0]).toMatchObject({
+      action: "correlate-errors",
+      mapped: true,
+      windowMs: 9000,
+    });
+  });
+
   it("routes framework and utility commands", async () => {
     const session = `routing-${process.pid}-${Date.now()}-misc`;
     const daemon = await startInspectDaemon(session);

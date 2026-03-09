@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import type { Socket } from "node:net";
 import { fileURLToPath } from "node:url";
 import * as browser from "./browser.js";
+import { correlateErrorWithHMR, formatErrorCorrelationReport } from "./correlate.js";
 import { socketDir, socketPath, pidFile } from "./paths.js";
 import { EventQueue } from "./event-queue.js";
 import * as networkLog from "./network.js";
@@ -16,6 +17,7 @@ export type Cmd = {
   idx?: number;
   mode?: "summary" | "trace" | "clear" | "snapshot";
   limit?: number;
+  windowMs?: number;
   filter?: string;
   mapped?: boolean;
   inlineSource?: boolean;
@@ -125,6 +127,15 @@ export function createRunner(api: BrowserApi = browser) {
     }
     if (cmd.action === "errors") {
       const data = await api.errors(Boolean(cmd.mapped), Boolean(cmd.inlineSource));
+      return { ok: true, data };
+    }
+    if (cmd.action === "correlate-errors") {
+      const errorText = String(await api.errors(Boolean(cmd.mapped), Boolean(cmd.inlineSource)));
+      const events = queue ? queue.window(cmd.windowMs ?? 5000) : [];
+      const data = formatErrorCorrelationReport(
+        errorText,
+        errorText === "no errors" ? null : correlateErrorWithHMR(errorText, events, cmd.windowMs ?? 5000),
+      );
       return { ok: true, data };
     }
     if (cmd.action === "logs") {

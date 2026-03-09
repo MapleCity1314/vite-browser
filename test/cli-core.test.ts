@@ -32,6 +32,7 @@ describe("cli core helpers", () => {
   it("prints usage text", () => {
     expect(printUsage()).toContain("vite-browser - Programmatic access");
     expect(printUsage()).toContain("vite module-graph trace");
+    expect(printUsage()).toContain("correlate errors");
   });
 
   it("exits with error result", () => {
@@ -91,6 +92,16 @@ describe("cli runner", () => {
     const ctx3 = createIo();
     await expectExit(runCli(["node", "cli", "errors", "--mapped", "--inline-source"], ctx3.io));
     expect(ctx3.send).toHaveBeenLastCalledWith("errors", { mapped: true, inlineSource: true });
+
+    const ctx4 = createIo();
+    await expectExit(
+      runCli(["node", "cli", "correlate", "errors", "--mapped", "--window", "9000"], ctx4.io),
+    );
+    expect(ctx4.send).toHaveBeenLastCalledWith("correlate-errors", {
+      mapped: true,
+      inlineSource: false,
+      windowMs: 9000,
+    });
   });
 
   it("validates required args", async () => {

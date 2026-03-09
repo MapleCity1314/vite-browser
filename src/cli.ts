@@ -165,6 +165,14 @@ export async function runCli(argv: string[], io: CliIo) {
     exit(io, res, res.ok && res.data ? String(res.data) : "no errors");
   }
 
+  if (cmd === "correlate" && arg === "errors") {
+    const mapped = args.includes("--mapped");
+    const inlineSource = args.includes("--inline-source");
+    const windowMs = parseNumberFlag(args, "--window", 5000);
+    const res = await io.send("correlate-errors", { mapped, inlineSource, windowMs });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
   if (cmd === "logs") {
     const res = await io.send("logs");
     exit(io, res, res.ok && res.data ? String(res.data) : "");
@@ -245,6 +253,8 @@ VITE COMMANDS
   errors                              Show build/runtime errors
   errors --mapped                     Show errors with source-map mapping
   errors --mapped --inline-source     Include mapped source snippets
+  correlate errors [--window <ms>]    Correlate current errors with recent HMR events
+  correlate errors --mapped           Correlate mapped errors with recent HMR events
   logs                                Show dev server logs
 
 UTILITIES

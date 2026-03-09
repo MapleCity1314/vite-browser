@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { cleanError, createRunner, dispatchLine, type BrowserApi } from "../src/daemon.js";
+import { EventQueue } from "../src/event-queue.js";
 
 function createBrowserMock() {
   return {
@@ -52,6 +53,26 @@ describe("daemon core runner", () => {
     expect(ok).toMatchObject({ ok: true, data: "errors" });
     expect(api.errors).toHaveBeenCalledWith(true, true);
     expect(unknown).toMatchObject({ ok: false, error: "unknown action: nope" });
+  });
+
+  it("correlates errors against queued hmr events", async () => {
+    const api = createBrowserMock();
+    const queue = new EventQueue();
+    queue.push({
+      timestamp: Date.now(),
+      type: "hmr-update",
+      payload: { path: "/src/App.tsx" },
+    });
+    api.getEventQueue = vi.fn(() => queue);
+    api.getCurrentPage = vi.fn(() => null);
+    api.errors = vi.fn(async () => "TypeError at http://localhost:5173/src/App.tsx:3:1");
+    const run = createRunner(api);
+
+    const result = await run({ action: "correlate-errors", windowMs: 5000 });
+
+    expect(result).toMatchObject({ ok: true });
+    expect(String(result.data)).toContain("Confidence: high");
+    expect(String(result.data)).toContain("/src/App.tsx");
   });
 
   it("flushes queued browser events before handling a command", async () => {

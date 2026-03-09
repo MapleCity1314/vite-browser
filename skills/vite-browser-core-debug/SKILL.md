@@ -14,8 +14,12 @@ Use this skill for first-pass diagnosis only. Escalate quickly if the problem is
 ## Workflow
 
 1. Open app and detect framework.
-2. Run error-first gate (`errors`, `logs`).
-3. Decide whether the dominant issue is framework state, runtime/HMR, or network.
+2. Run error-first gate (`errors`, `logs`) AND `vite runtime`.
+3. **IMMEDIATE ROUTING DECISION**:
+   - If `vite runtime` shows HMR Socket closed/error/unknown → escalate to `vite-browser-runtime-diagnostics`
+   - If `errors` contains "HMR", "hot", "reload", "import", "resolve", "module", "circular", "websocket" → escalate to `vite-browser-runtime-diagnostics`
+   - If `network` shows 4xx/5xx/FAIL responses → escalate to `vite-browser-network-regression`
+   - Otherwise, continue with framework state inspection
 4. Inspect framework state (`vue/react/svelte tree`, plus router/pinia for Vue) only if the issue still looks component-driven.
 5. Validate behavior with `network`, `screenshot`, and `eval`.
 6. Return findings with command evidence and a minimal fix path.
@@ -38,11 +42,12 @@ Escalate to `vite-browser-network-regression` if:
 ```bash
 vite-browser open <url>
 vite-browser detect
+vite-browser vite runtime
 vite-browser errors --mapped
 vite-browser logs
 ```
 
-Then branch:
+Then branch based on routing decision:
 
 - Vue:
   - `vite-browser vue tree`
@@ -74,3 +79,10 @@ Always report:
 4. Confidence: `high`, `medium`, or `low`
 5. Minimal fix or next skill to run
 6. Recheck commands
+
+## When to switch skills
+
+If diagnosis reveals the root cause is actually:
+- HMR/runtime issue (hot update failures, module errors, import resolution) → switch to `vite-browser-runtime-diagnostics`
+- Network/API issue (wrong data, failed requests, CORS, auth) → switch to `vite-browser-network-regression`
+- Need final pre-release validation → switch to `vite-browser-release-smoke`

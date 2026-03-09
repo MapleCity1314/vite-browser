@@ -119,6 +119,46 @@ describe("daemon core runner", () => {
     expect(String(result.data)).toContain("repeated-full-reload");
   });
 
+  it("correlates renders and diagnoses propagation from queued events", async () => {
+    const api = createBrowserMock();
+    const queue = new EventQueue();
+    queue.push({
+      timestamp: Date.now() - 20,
+      type: "hmr-update",
+      payload: { path: "/src/App.vue" },
+    });
+    queue.push({
+      timestamp: Date.now() - 15,
+      type: "store-update",
+      payload: { store: "main", mutationType: "patch object", changedKeys: ["filters"] },
+    });
+    queue.push({
+      timestamp: Date.now() - 10,
+      type: "render",
+      payload: { component: "Dashboard", path: "App > Dashboard", storeHints: ["main"] },
+    });
+    queue.push({
+      timestamp: Date.now(),
+      type: "error",
+      payload: { message: "TypeError: boom" },
+    });
+    api.getEventQueue = vi.fn(() => queue);
+    const run = createRunner(api);
+
+    const correlation = await run({ action: "correlate-renders", windowMs: 5000 });
+    const diagnosis = await run({ action: "diagnose-propagation", windowMs: 5000 });
+
+    expect(String(correlation.data)).toContain("# Render Correlation");
+    expect(String(correlation.data)).toContain("/src/App.vue");
+    expect(String(correlation.data)).toContain("## Store Updates");
+    expect(String(correlation.data)).toContain("## Changed Keys");
+    expect(String(correlation.data)).toContain("## Store Hints");
+    expect(String(diagnosis.data)).toContain("# Propagation Diagnosis");
+    expect(String(diagnosis.data)).toContain("store -> render -> error");
+    expect(String(diagnosis.data)).toContain("store main");
+    expect(String(diagnosis.data)).toContain("Changed keys: filters.");
+  });
+
   it("returns a no-correlation report when there are no current errors", async () => {
     const api = createBrowserMock();
     api.errors = vi.fn(async () => "no errors");

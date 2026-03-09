@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 import * as browser from "./browser.js";
 import { correlateErrorWithHMR, formatErrorCorrelationReport } from "./correlate.js";
 import { diagnoseHMR, formatDiagnosisReport } from "./diagnose.js";
+import { diagnosePropagation, formatPropagationDiagnosisReport } from "./diagnose-propagation.js";
 import { socketDir, socketPath, pidFile } from "./paths.js";
+import { correlateRenderPropagation, formatPropagationTraceReport } from "./trace.js";
 import { EventQueue } from "./event-queue.js";
 import * as networkLog from "./network.js";
 
@@ -139,6 +141,11 @@ export function createRunner(api: BrowserApi = browser) {
       );
       return { ok: true, data };
     }
+    if (cmd.action === "correlate-renders") {
+      const events = queue ? queue.window(cmd.windowMs ?? 5000) : [];
+      const data = formatPropagationTraceReport(correlateRenderPropagation(events));
+      return { ok: true, data };
+    }
     if (cmd.action === "diagnose-hmr") {
       const errorText = String(await api.errors(Boolean(cmd.mapped), Boolean(cmd.inlineSource)));
       const runtimeText = String(await api.viteRuntimeStatus());
@@ -149,6 +156,11 @@ export function createRunner(api: BrowserApi = browser) {
       const data = formatDiagnosisReport(
         diagnoseHMR({ errorText, runtimeText, hmrTraceText, correlation }),
       );
+      return { ok: true, data };
+    }
+    if (cmd.action === "diagnose-propagation") {
+      const events = queue ? queue.window(cmd.windowMs ?? 5000) : [];
+      const data = formatPropagationDiagnosisReport(diagnosePropagation(correlateRenderPropagation(events)));
       return { ok: true, data };
     }
     if (cmd.action === "logs") {

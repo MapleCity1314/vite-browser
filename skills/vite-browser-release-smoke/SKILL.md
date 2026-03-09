@@ -64,3 +64,10 @@ Return:
 3. Diagnosis hits and confidence, if any
 4. Evidence commands for each failed item
 5. Final recommendation: `go` or `no-go`
+
+## When to switch skills
+
+If smoke test reveals specific issues requiring deeper investigation:
+- Component state or framework-specific failures → switch to `vite-browser-core-debug`
+- HMR/runtime failures (hot update issues, module errors) → switch to `vite-browser-runtime-diagnostics`
+- Network/API failures (wrong data, failed requests) → switch to `vite-browser-network-regression`

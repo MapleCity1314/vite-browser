@@ -3,9 +3,14 @@ name: vite-browser-runtime-diagnostics
 description: >-
   Deep Vite runtime diagnostics for recent hot-update regressions, HMR
   instability, unexpected full reloads, module churn, stack trace mapping, and
-  "which recent update caused this" analysis. Use this whenever users mention
-  HMR issues, refresh loops, full reloads, recent edit broke page, or "can't
-  locate source from Vite error".
+  "which recent update caused this" analysis. Make sure to use this skill
+  whenever users mention any of: HMR, hot reload, hot update, full reload, page
+  refresh, unexpected refresh, recent edit broke page, recent change broke it,
+  it was working before, module errors, import failures, import resolution,
+  failed to resolve, cannot find module, circular dependency, websocket closed,
+  Vite error overlay, can't locate source from Vite error, rerender loop,
+  component path, store update caused error, Pinia mutation, or "which component
+  rerendered after this update".
 ---
 
 # vite-browser-runtime-diagnostics
@@ -18,13 +23,15 @@ Use this skill when runtime behavior is the likely cause. Prefer it over compone
 vite-browser vite runtime
 vite-browser errors --mapped --inline-source
 vite-browser correlate errors --mapped --window 5000
+vite-browser correlate renders --window 5000
+vite-browser diagnose propagation --window 5000
 vite-browser diagnose hmr --limit 50
 vite-browser vite hmr trace --limit 50
 vite-browser vite module-graph --limit 200
 vite-browser vite module-graph trace --limit 200
 ```
 
-Use `diagnose hmr` as the default triage command after collecting mapped errors.
+Use `diagnose propagation` first when the question is about rerenders, component paths, store changes, or "what update actually flowed into this failure". Treat its output as a high-confidence propagation clue, not strict causal proof. Use `diagnose hmr` first when the problem still looks primarily transport/HMR-layer.
 
 ## Diagnostic patterns
 
@@ -50,6 +57,14 @@ Use `diagnose hmr` as the default triage command after collecting mapped errors.
 3. Identify whether the current error overlaps with recent HMR-updated modules.
 4. Inspect the highest-confidence matching module first.
 
+### Store or component propagation
+
+1. Reproduce once after the visible failure.
+2. `correlate renders --window 5000`
+3. `diagnose propagation --window 5000`
+4. Use `Store Updates`, `Changed Keys`, and `Render Path` to choose the first store/component to inspect.
+5. If the output is inconclusive or says no trace is available, keep the conclusion conservative and do not overstate a causal chain.
+
 ### Stack mapping
 
 1. `errors --mapped`
@@ -71,7 +86,15 @@ Always provide:
 2. Most likely runtime cause
 3. Diagnosis hits with status and confidence
 4. Error/HMR correlation conclusion
-5. HMR timeline conclusion
-6. Module-graph delta conclusion
-7. Final mapped source location(s)
-8. Suggested fix order
+5. Render/component propagation conclusion
+6. HMR timeline conclusion
+7. Module-graph delta conclusion
+8. Final mapped source location(s)
+9. Suggested fix order
+
+## When to switch skills
+
+If diagnosis reveals the root cause is actually:
+- Component state or framework-specific issue (wrong props, store state, router) → switch to `vite-browser-core-debug`
+- Network/API issue (wrong data, failed requests, CORS, auth) → switch to `vite-browser-network-regression`
+- Need final pre-release validation → switch to `vite-browser-release-smoke`

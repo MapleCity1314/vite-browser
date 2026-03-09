@@ -25,7 +25,9 @@ export function diagnoseHMR(input: DiagnoseInput): DiagnosisResult[] {
     detectMissingModule(input),
     detectClosedWebsocket(input),
     detectRepeatedFullReload(input),
-  ].filter((result): result is DiagnosisResult => result !== null);
+  ]
+    .filter((result): result is DiagnosisResult => result !== null)
+    .sort(compareDiagnosisResults);
 
   if (results.length > 0) return results;
 
@@ -96,18 +98,24 @@ function detectMissingModule(input: DiagnoseInput): DiagnosisResult | null {
 }
 
 function detectClosedWebsocket(input: DiagnoseInput): DiagnosisResult | null {
-  const runtimeClosed = /HMR Socket:\s*(closed|closing|unknown)/i.test(input.runtimeText);
+  const runtimeState = extractRuntimeSocketState(input.runtimeText);
+  const runtimeClosed = runtimeState === "closed" || runtimeState === "closing";
   const traceClosed = /disconnected|failed to connect|connection lost|ws closed/i.test(input.hmrTraceText);
   if (!runtimeClosed && !traceClosed) return null;
+
+  const runtimeOnly = runtimeClosed && !traceClosed;
+  const traceOnly = traceClosed && !runtimeClosed;
 
   return {
     code: "hmr-websocket-closed",
     status: "fail",
     confidence: runtimeClosed && traceClosed ? "high" : "medium",
     summary: "The HMR websocket is not healthy.",
-    detail: runtimeClosed
-      ? "Runtime status reports the HMR socket as closed, closing, or unknown."
-      : "HMR trace contains disconnect or websocket failure messages.",
+    detail: runtimeOnly
+      ? "Runtime status reports the HMR socket as closed or closing."
+      : traceOnly
+        ? "HMR trace contains disconnect or websocket failure messages."
+        : "Runtime status and HMR trace both indicate websocket instability.",
     suggestion: "Check the dev server is running, the page is connected to the correct origin, and no proxy/firewall is blocking the websocket.",
   };
 }
@@ -124,4 +132,23 @@ function detectRepeatedFullReload(input: DiagnoseInput): DiagnosisResult | null 
     detail: `Observed ${matches.length} full-reload events in the recent HMR trace.`,
     suggestion: "Check whether the changed module is outside HMR boundaries, introduces side effects, or triggers a circular dependency.",
   };
+}
+
+function extractRuntimeSocketState(runtimeText: string): "open" | "closed" | "closing" | "connecting" | "unknown" {
+  const match = runtimeText.match(/HMR Socket:\s*(open|closed|closing|connecting|unknown)/i);
+  const state = match?.[1]?.toLowerCase();
+  if (state === "open" || state === "closed" || state === "closing" || state === "connecting") {
+    return state;
+  }
+  return "unknown";
+}
+
+function compareDiagnosisResults(a: DiagnosisResult, b: DiagnosisResult): number {
+  return scoreDiagnosis(b) - scoreDiagnosis(a);
+}
+
+function scoreDiagnosis(result: DiagnosisResult): number {
+  const statusScore = result.status === "fail" ? 30 : result.status === "warn" ? 20 : 10;
+  const confidenceScore = result.confidence === "high" ? 3 : result.confidence === "medium" ? 2 : 1;
+  return statusScore + confidenceScore;
 }

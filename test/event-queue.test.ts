@@ -56,15 +56,18 @@ describe('EventQueue', () => {
 
   test('ofType filters by event type', () => {
     queue.push({ timestamp: 1000, type: 'hmr-update', payload: {} });
+    queue.push({ timestamp: 1500, type: 'store-update', payload: { store: 'main' } });
     queue.push({ timestamp: 2000, type: 'error', payload: {} });
     queue.push({ timestamp: 3000, type: 'hmr-update', payload: {} });
     queue.push({ timestamp: 4000, type: 'network', payload: {} });
 
     const hmrEvents = queue.ofType('hmr-update');
     const errorEvents = queue.ofType('error');
+    const storeEvents = queue.ofType('store-update');
 
     expect(hmrEvents).toHaveLength(2);
     expect(errorEvents).toHaveLength(1);
+    expect(storeEvents).toHaveLength(1);
     expect(hmrEvents[0].timestamp).toBe(1000);
     expect(hmrEvents[1].timestamp).toBe(3000);
   });

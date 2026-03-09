@@ -4,3 +4,12 @@ dist/
 .DS_Store
 *.tsbuildinfo
 .vite-browser/
+
+.claude/
+.agents/
+coverage/
+
+AGENTS.md
+CLAUDE.md
+
+version-docs/*

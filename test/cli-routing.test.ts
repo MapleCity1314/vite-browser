@@ -160,6 +160,32 @@ describe("cli routing", () => {
     });
   });
 
+  it("routes correlate renders and diagnose propagation", async () => {
+    const session = `routing-${process.pid}-${Date.now()}-propagation`;
+    const daemon = await startInspectDaemon(session);
+    registerCleanup(daemon);
+
+    const correlateRes = await runCli(
+      ["correlate", "renders", "--window", "6000"],
+      { VITE_BROWSER_SESSION: session },
+    );
+    expect(correlateRes.code).toBe(0);
+    expect(daemon.received[0]).toMatchObject({
+      action: "correlate-renders",
+      windowMs: 6000,
+    });
+
+    const diagnoseRes = await runCli(
+      ["diagnose", "propagation", "--window", "6000"],
+      { VITE_BROWSER_SESSION: session },
+    );
+    expect(diagnoseRes.code).toBe(0);
+    expect(daemon.received[1]).toMatchObject({
+      action: "diagnose-propagation",
+      windowMs: 6000,
+    });
+  });
+
   it("routes framework and utility commands", async () => {
     const session = `routing-${process.pid}-${Date.now()}-misc`;
     const daemon = await startInspectDaemon(session);

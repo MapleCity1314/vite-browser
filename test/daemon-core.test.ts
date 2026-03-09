@@ -75,6 +75,26 @@ describe("daemon core runner", () => {
     expect(String(result.data)).toContain("/src/App.tsx");
   });
 
+  it("diagnoses hmr failures from runtime, errors, and trace data", async () => {
+    const api = createBrowserMock();
+    api.errors = vi.fn(
+      async () => "Failed to resolve import '/src/missing.ts' from '/src/App.tsx'. Does the file exist?",
+    );
+    api.viteRuntimeStatus = vi.fn(async () => "# Vite Runtime\nHMR Socket: closed");
+    api.viteHMRTrace = vi.fn(
+      async () =>
+        "# HMR Trace\n[12:00:00] error disconnected\n[12:00:01] full-reload /src/App.tsx\n[12:00:02] full-reload /src/main.tsx",
+    );
+    const run = createRunner(api);
+
+    const result = await run({ action: "diagnose-hmr", limit: 50, windowMs: 5000 });
+
+    expect(result).toMatchObject({ ok: true });
+    expect(String(result.data)).toContain("missing-module");
+    expect(String(result.data)).toContain("hmr-websocket-closed");
+    expect(String(result.data)).toContain("repeated-full-reload");
+  });
+
   it("flushes queued browser events before handling a command", async () => {
     const api = createBrowserMock();
     const queue = { push: vi.fn() };

@@ -4,6 +4,7 @@ import type { Socket } from "node:net";
 import { fileURLToPath } from "node:url";
 import * as browser from "./browser.js";
 import { correlateErrorWithHMR, formatErrorCorrelationReport } from "./correlate.js";
+import { diagnoseHMR, formatDiagnosisReport } from "./diagnose.js";
 import { socketDir, socketPath, pidFile } from "./paths.js";
 import { EventQueue } from "./event-queue.js";
 import * as networkLog from "./network.js";
@@ -135,6 +136,18 @@ export function createRunner(api: BrowserApi = browser) {
       const data = formatErrorCorrelationReport(
         errorText,
         errorText === "no errors" ? null : correlateErrorWithHMR(errorText, events, cmd.windowMs ?? 5000),
+      );
+      return { ok: true, data };
+    }
+    if (cmd.action === "diagnose-hmr") {
+      const errorText = String(await api.errors(Boolean(cmd.mapped), Boolean(cmd.inlineSource)));
+      const runtimeText = String(await api.viteRuntimeStatus());
+      const hmrTraceText = String(await api.viteHMRTrace("trace", cmd.limit ?? 50));
+      const events = queue ? queue.window(cmd.windowMs ?? 5000) : [];
+      const correlation =
+        errorText === "no errors" ? null : correlateErrorWithHMR(errorText, events, cmd.windowMs ?? 5000);
+      const data = formatDiagnosisReport(
+        diagnoseHMR({ errorText, runtimeText, hmrTraceText, correlation }),
       );
       return { ok: true, data };
     }

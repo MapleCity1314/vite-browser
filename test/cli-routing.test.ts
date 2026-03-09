@@ -143,6 +143,23 @@ describe("cli routing", () => {
     });
   });
 
+  it("routes diagnose hmr with limit and window flags", async () => {
+    const session = `routing-${process.pid}-${Date.now()}-diagnose`;
+    const daemon = await startInspectDaemon(session);
+    registerCleanup(daemon);
+
+    const res = await runCli(
+      ["diagnose", "hmr", "--limit", "25", "--window", "7000"],
+      { VITE_BROWSER_SESSION: session },
+    );
+    expect(res.code).toBe(0);
+    expect(daemon.received[0]).toMatchObject({
+      action: "diagnose-hmr",
+      limit: 25,
+      windowMs: 7000,
+    });
+  });
+
   it("routes framework and utility commands", async () => {
     const session = `routing-${process.pid}-${Date.now()}-misc`;
     const daemon = await startInspectDaemon(session);

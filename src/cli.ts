@@ -173,6 +173,15 @@ export async function runCli(argv: string[], io: CliIo) {
     exit(io, res, res.ok && res.data ? String(res.data) : "");
   }
 
+  if (cmd === "diagnose" && arg === "hmr") {
+    const mapped = args.includes("--mapped");
+    const inlineSource = args.includes("--inline-source");
+    const windowMs = parseNumberFlag(args, "--window", 5000);
+    const limit = parseNumberFlag(args, "--limit", 50);
+    const res = await io.send("diagnose-hmr", { mapped, inlineSource, windowMs, limit });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
   if (cmd === "logs") {
     const res = await io.send("logs");
     exit(io, res, res.ok && res.data ? String(res.data) : "");
@@ -255,6 +264,8 @@ VITE COMMANDS
   errors --mapped --inline-source     Include mapped source snippets
   correlate errors [--window <ms>]    Correlate current errors with recent HMR events
   correlate errors --mapped           Correlate mapped errors with recent HMR events
+  diagnose hmr [--window <ms>]        Diagnose HMR failures from runtime, errors, and trace data
+  diagnose hmr [--limit <n>]          Control how many recent HMR trace entries are inspected
   logs                                Show dev server logs
 
 UTILITIES

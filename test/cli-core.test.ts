@@ -102,6 +102,17 @@ describe("cli runner", () => {
       inlineSource: false,
       windowMs: 9000,
     });
+
+    const ctx5 = createIo();
+    await expectExit(
+      runCli(["node", "cli", "diagnose", "hmr", "--limit", "25", "--window", "7000"], ctx5.io),
+    );
+    expect(ctx5.send).toHaveBeenLastCalledWith("diagnose-hmr", {
+      mapped: false,
+      inlineSource: false,
+      windowMs: 7000,
+      limit: 25,
+    });
   });
 
   it("validates required args", async () => {

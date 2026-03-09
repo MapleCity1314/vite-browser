@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import {
+  createClientDeps,
   daemonAlive,
   ensureDaemon,
   no,
@@ -46,6 +47,13 @@ describe("client core helpers", () => {
     await expect(pending).resolves.toBe("hello world");
   });
 
+  it("rejects readLine on socket error", async () => {
+    const socket = new FakeSocket();
+    const pending = readLine(socket as never);
+    socket.emit("error", new Error("boom"));
+    await expect(pending).rejects.toThrow("boom");
+  });
+
   it("marks connected socket as ok and no() as false", () => {
     const socket = new FakeSocket();
     expect(ok(socket as never)).toBe(true);
@@ -72,6 +80,13 @@ describe("client core helpers", () => {
     });
 
     expect(daemonAlive(deps)).toBe(true);
+  });
+
+  it("creates client deps with daemon path and socket metadata", () => {
+    const deps = createClientDeps();
+    expect(deps.daemonPath).toMatch(/daemon\.(ts|js)$/);
+    expect(typeof deps.socketPath).toBe("string");
+    expect(typeof deps.pidFile).toBe("string");
   });
 });
 

@@ -32,6 +32,30 @@ function createBrowserMock() {
 }
 
 describe("daemon core runner", () => {
+  it("routes browser, framework, and utility commands", async () => {
+    const api = createBrowserMock();
+    const run = createRunner(api);
+
+    await expect(run({ action: "open", url: "http://localhost:5173" })).resolves.toMatchObject({ ok: true });
+    await expect(run({ action: "cookies", cookies: [{ name: "a", value: "b" }], domain: "localhost" })).resolves.toMatchObject({ ok: true, data: 2 });
+    await expect(run({ action: "close" })).resolves.toMatchObject({ ok: true });
+    await expect(run({ action: "goto", url: "http://localhost:5173/about" })).resolves.toMatchObject({ ok: true, data: "http://localhost:5173/about" });
+    await expect(run({ action: "back" })).resolves.toMatchObject({ ok: true });
+    await expect(run({ action: "reload" })).resolves.toMatchObject({ ok: true, data: "http://localhost:5173" });
+    await expect(run({ action: "detect" })).resolves.toMatchObject({ ok: true, data: "vue@3.5.0" });
+    await expect(run({ action: "vue-tree", id: "1" })).resolves.toMatchObject({ ok: true, data: "tree" });
+    await expect(run({ action: "vue-pinia", store: "main" })).resolves.toMatchObject({ ok: true, data: "pinia" });
+    await expect(run({ action: "vue-router" })).resolves.toMatchObject({ ok: true, data: "router" });
+    await expect(run({ action: "react-tree", id: "2" })).resolves.toMatchObject({ ok: true, data: "react" });
+    await expect(run({ action: "svelte-tree", id: "3" })).resolves.toMatchObject({ ok: true, data: "svelte" });
+    await expect(run({ action: "vite-restart" })).resolves.toMatchObject({ ok: true, data: "restarted" });
+    await expect(run({ action: "vite-runtime" })).resolves.toMatchObject({ ok: true, data: "runtime" });
+    await expect(run({ action: "logs" })).resolves.toMatchObject({ ok: true, data: "logs" });
+    await expect(run({ action: "screenshot" })).resolves.toMatchObject({ ok: true, data: "/tmp/shot.png" });
+    await expect(run({ action: "eval", script: "1+1" })).resolves.toMatchObject({ ok: true, data: "{}" });
+    await expect(run({ action: "network", idx: 1 })).resolves.toMatchObject({ ok: true, data: "network" });
+  });
+
   it("normalizes vite hmr and module graph modes", async () => {
     const api = createBrowserMock();
     const run = createRunner(api);
@@ -159,6 +183,19 @@ describe("daemon line dispatch", () => {
     expect(output[0]).toContain('"id":"1"');
     expect(output[0]).toContain('"ok":true');
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes cleaned error when runner rejects", async () => {
+    const output: string[] = [];
+    const socket = { write: (line: string) => output.push(line) };
+    const run = vi.fn(async () => {
+      throw new Error("page.goto: Error: net::ERR_ABORTED\nCall log...");
+    });
+
+    await dispatchLine(JSON.stringify({ id: "2", action: "goto" }), socket, run);
+
+    expect(output[0]).toContain('"ok":false');
+    expect(output[0]).toContain("net::ERR_ABORTED");
   });
 });
 

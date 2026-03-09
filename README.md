@@ -18,22 +18,19 @@ It ships in two forms:
 - Agent Skill: scenario-based debugging workflows for coding assistants
 - CLI Runtime (`@presto1314w/vite-devtools-browser`): structured shell commands for local Vite debugging
 
-Current documented baseline: `v0.2.2`.
+Current documented baseline: `v0.3.0`.
 
-## What's New In v0.2
+## What's New In v0.3
 
-`v0.2.x` moves `vite-browser` from snapshot-style inspection toward runtime diagnosis:
+`v0.3.0` is the propagation-diagnostics release.
 
-- browser/runtime events are captured into a daemon-side event queue
-- `correlate errors` links the current error to recent HMR-updated modules
-- `diagnose hmr` turns runtime, trace, and error signals into structured findings
-- skills and CLI flows now route more directly to runtime triage instead of raw log inspection
+It keeps the `v0.2.x` runtime diagnosis model, then adds a new layer of propagation-oriented reasoning:
 
-`v0.2.2` is the stabilization pass for this model:
-
-- tighter `diagnose hmr` wording around websocket evidence and runtime ambiguity
-- better test coverage for the four built-in diagnosis families
-- docs and release positioning aligned around the stable `v0.2.x` surface
+- `correlate renders` summarizes recent render/update propagation evidence
+- `diagnose propagation` turns store/module/render/error signals into structured guidance
+- Vue-first store updates now include top-level `changedKeys`
+- browser-side collection now captures render and store-update signals as first-class events
+- propagation output stays conservative when evidence is incomplete
 
 ## Built For Agents
 
@@ -229,13 +226,14 @@ vite-browser svelte tree
 
 ## Current Boundaries
 
-`vite-browser` v0.2.2 is strong at:
+`vite-browser` v0.3.0 is strong at:
 
 - surfacing runtime state as structured shell output
 - linking current errors to recent HMR/module activity
 - detecting several common HMR failure patterns quickly
+- narrowing likely store/module -> render paths in Vue-first flows
 
-The current `v0.3` work adds early propagation diagnostics, including `correlate renders` and `diagnose propagation`, but it is not yet a full propagation-trace engine. Treat these commands as high-confidence propagation clues, not strict causal proof. In particular, they do not reliably infer deep chains like `store -> component A -> component B -> error` across arbitrary component graphs, and they intentionally fall back to conservative output when evidence is incomplete.
+`v0.3.0` is still not a full propagation-trace engine. Treat `correlate renders` and `diagnose propagation` as high-confidence propagation clues, not strict causal proof. In particular, they do not reliably infer deep chains like `store -> component A -> component B -> error` across arbitrary component graphs, and they intentionally fall back to conservative output when evidence is incomplete.
 
 ## Command Reference
 

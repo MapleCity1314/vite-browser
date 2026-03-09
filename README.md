@@ -6,6 +6,8 @@ It gives agents and developers structured access to:
 
 - Vue, React, and Svelte runtime state
 - Vite HMR activity and runtime health
+- event-window correlation between current errors and recent hot updates
+- rule-based HMR diagnosis with confidence levels
 - module graph snapshots and diffs
 - mapped error output with optional source snippets
 - network, logs, screenshots, and page evaluation
@@ -16,6 +18,15 @@ It ships in two forms:
 - CLI Runtime (`@presto1314w/vite-devtools-browser`): structured shell commands for local Vite debugging
 
 Current documented baseline: `v0.2.0`.
+
+## What's New In v0.2
+
+`v0.2.0` moves `vite-browser` from snapshot-style inspection toward runtime diagnosis:
+
+- browser/runtime events are captured into a daemon-side event queue
+- `correlate errors` links the current error to recent HMR-updated modules
+- `diagnose hmr` turns runtime, trace, and error signals into structured findings
+- skills and CLI flows now route more directly to runtime triage instead of raw log inspection
 
 ## Built For Agents
 
@@ -33,6 +44,7 @@ Most browser CLIs are optimized for automation. Most framework devtools are opti
 
 - it can inspect framework state like a devtools bridge
 - it can explain Vite-specific behavior like HMR updates and module graph changes
+- it can correlate recent updates with current failures
 - it returns structured text that AI agents can consume directly in loops
 
 ## Positioning
@@ -69,16 +81,24 @@ npm run dev
 # terminal B: inspect runtime
 vite-browser open http://localhost:5173
 vite-browser detect
-vite-browser vue tree
-vite-browser vue pinia
 vite-browser vite runtime
-vite-browser vite hmr trace --limit 20
-vite-browser vite module-graph trace --limit 50
+vite-browser errors --mapped --inline-source
 vite-browser correlate errors --mapped --window 5000
 vite-browser diagnose hmr --limit 50
-vite-browser errors --mapped --inline-source
+vite-browser vite hmr trace --limit 20
+vite-browser vite module-graph trace --limit 50
 vite-browser network
 vite-browser close
+```
+
+For component/state debugging, then branch into framework-specific commands:
+
+```bash
+vite-browser vue tree
+vite-browser vue pinia
+vite-browser vue router
+vite-browser react tree
+vite-browser svelte tree
 ```
 
 ## What It Looks Like
@@ -107,14 +127,21 @@ Failed to resolve import "./missing"
 
 $ vite-browser correlate errors --mapped --window 5000
 # Error Correlation
-...
+## Current Error
+TypeError: boom at /src/App.tsx:4:2
+
+## Correlation
 Confidence: high
+HMR update observed within 5000ms of the current error
+Matching modules: /src/App.tsx
 
 $ vite-browser diagnose hmr --limit 50
 # HMR Diagnosis
 ## missing-module
 Status: fail
 Confidence: high
+A module import failed to resolve during HMR.
+Suggestion: Verify the import path, file extension, alias configuration, and whether the module exists on disk.
 ```
 
 ## Core Capabilities
@@ -131,6 +158,50 @@ Confidence: high
   - rule-based HMR diagnosis with confidence levels
   - source-mapped errors with optional inline source snippet
 - Debug utilities: console logs, network tracing, screenshot, page `eval`
+
+## Recommended Workflows
+
+### Runtime/HMR triage
+
+```bash
+vite-browser vite runtime
+vite-browser errors --mapped --inline-source
+vite-browser correlate errors --mapped --window 5000
+vite-browser diagnose hmr --limit 50
+vite-browser vite hmr trace --limit 50
+vite-browser vite module-graph trace --limit 200
+```
+
+### Data/API triage
+
+```bash
+vite-browser errors --mapped
+vite-browser logs
+vite-browser network
+vite-browser network <idx>
+vite-browser eval '<state probe>'
+```
+
+### Component/state triage
+
+```bash
+vite-browser detect
+vite-browser vue tree
+vite-browser vue pinia
+vite-browser vue router
+vite-browser react tree
+vite-browser svelte tree
+```
+
+## Current Boundaries
+
+`vite-browser` v0.2 is strong at:
+
+- surfacing runtime state as structured shell output
+- linking current errors to recent HMR/module activity
+- detecting several common HMR failure patterns quickly
+
+It is not yet a full propagation-trace engine. In particular, it does not reliably infer deep chains like `store -> component A -> component B -> error` across arbitrary component graphs.
 
 ## Command Reference
 

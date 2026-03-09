@@ -2,6 +2,7 @@ import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Page, Request, Response } from "playwright";
+import type { EventQueue } from "./event-queue.js";
 
 const BODY_INLINE_LIMIT = 4000;
 
@@ -13,6 +14,11 @@ type Entry = {
 
 let entries: Entry[] = [];
 let startTime = new Map<Request, number>();
+let eventQueue: EventQueue | null = null;
+
+export function setEventQueue(queue: EventQueue): void {
+  eventQueue = queue;
+}
 
 export function attach(page: Page) {
   page.on("request", (req) => {
@@ -26,7 +32,22 @@ export function attach(page: Page) {
     const req = res.request();
     const t0 = startTime.get(req);
     if (t0 == null) return;
-    entries.push({ req, res, ms: Date.now() - t0 });
+    const ms = Date.now() - t0;
+    entries.push({ req, res, ms });
+
+    // Push to event queue if available
+    if (eventQueue) {
+      eventQueue.push({
+        timestamp: Date.now(),
+        type: 'network',
+        payload: {
+          url: req.url(),
+          method: req.method(),
+          status: res.status(),
+          ms
+        }
+      });
+    }
   });
 
   page.on("requestfailed", (req) => {

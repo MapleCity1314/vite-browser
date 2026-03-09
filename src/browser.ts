@@ -7,6 +7,7 @@ import * as reactDevtools from "./react/devtools.js";
 import * as svelteDevtools from "./svelte/devtools.js";
 import * as networkLog from "./network.js";
 import { resolveViaSourceMap } from "./sourcemap.js";
+import { EventQueue, type VBEvent } from "./event-queue.js";
 
 const extensionPath =
   process.env.REACT_DEVTOOLS_EXTENSION ??
@@ -21,6 +22,7 @@ let context: BrowserContext | null = null;
 let page: Page | null = null;
 let framework: "vue" | "react" | "svelte" | "unknown" = "unknown";
 let extensionModeDisabled = false;
+let eventQueue: EventQueue | null = null;
 
 const consoleLogs: string[] = [];
 const MAX_LOGS = 200;
@@ -40,11 +42,106 @@ export type ModuleGraphMode = "snapshot" | "trace" | "clear";
 const hmrEvents: HmrEvent[] = [];
 let lastModuleGraphUrls: string[] | null = null;
 
+export function setEventQueue(queue: EventQueue): void {
+  eventQueue = queue;
+}
+
+export function getEventQueue(): EventQueue | null {
+  return eventQueue;
+}
+
+export function getCurrentPage(): Page | null {
+  if (!contextUsable(context)) return null;
+  if (!page || page.isClosed()) return null;
+  return page;
+}
+
+/**
+ * Inject browser-side event collector into the page
+ */
+async function injectEventCollector(currentPage: Page): Promise<void> {
+  await currentPage.evaluate(() => {
+    if ((window as any).__vb_events) return; // already injected
+
+    (window as any).__vb_events = [];
+    (window as any).__vb_push = (event: unknown) => {
+      const q = (window as any).__vb_events;
+      q.push(event);
+      if (q.length > 1000) q.shift();
+    };
+
+    // Subscribe to Vite HMR WebSocket
+    function attachViteListener(): boolean {
+      const hot = (window as any).__vite_hot;
+      if (hot?.ws) {
+        hot.ws.addEventListener('message', (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            (window as any).__vb_push({
+              timestamp: Date.now(),
+              type: data.type === 'error' ? 'hmr-error' : 'hmr-update',
+              payload: data
+            });
+          } catch {}
+        });
+        return true;
+      }
+      return false;
+    }
+
+    // Retry if __vite_hot not ready yet
+    if (!attachViteListener()) {
+      let attempts = 0;
+      const timer = setInterval(() => {
+        attempts++;
+        if (attachViteListener() || attempts >= 50) {
+          clearInterval(timer);
+        }
+      }, 100);
+    }
+
+    // Hook window.onerror for runtime errors
+    const origOnError = window.onerror;
+    window.onerror = (msg, src, line, col, err) => {
+      (window as any).__vb_push({
+        timestamp: Date.now(),
+        type: 'error',
+        payload: { message: String(msg), source: src, line, col, stack: err?.stack }
+      });
+      return origOnError ? origOnError(msg, src, line, col, err) : false;
+    };
+
+    // Hook unhandledrejection
+    window.addEventListener('unhandledrejection', (e) => {
+      (window as any).__vb_push({
+        timestamp: Date.now(),
+        type: 'error',
+        payload: { message: e.reason?.message, stack: e.reason?.stack }
+      });
+    });
+  });
+}
+
+/**
+ * Flush browser events into daemon event queue
+ */
+export async function flushBrowserEvents(currentPage: Page, queue: EventQueue): Promise<void> {
+  const raw = await currentPage.evaluate(() => {
+    const events = (window as any).__vb_events ?? [];
+    (window as any).__vb_events = []; // clear after flush
+    return events;
+  });
+  for (const e of raw) {
+    queue.push(e as VBEvent);
+  }
+}
+
 export async function open(url: string | undefined) {
   const currentPage = await ensurePage();
 
   if (url) {
     await currentPage.goto(url, { waitUntil: "domcontentloaded" });
+    await injectEventCollector(currentPage);
     await detectFramework();
   }
 }
@@ -318,6 +415,7 @@ export function formatModuleGraphTrace(
 export async function goto(url: string) {
   const currentPage = await ensurePage();
   await currentPage.goto(url, { waitUntil: "domcontentloaded" });
+  await injectEventCollector(currentPage);
   await detectFramework();
   return currentPage.url();
 }

@@ -3,6 +3,9 @@ import { cleanError, createRunner, dispatchLine, type BrowserApi } from "../src/
 
 function createBrowserMock() {
   return {
+    getEventQueue: vi.fn(() => null),
+    getCurrentPage: vi.fn(() => null),
+    flushBrowserEvents: vi.fn(async () => undefined),
     open: vi.fn(async () => undefined),
     cookies: vi.fn(async () => 2),
     close: vi.fn(async () => undefined),
@@ -49,6 +52,33 @@ describe("daemon core runner", () => {
     expect(ok).toMatchObject({ ok: true, data: "errors" });
     expect(api.errors).toHaveBeenCalledWith(true, true);
     expect(unknown).toMatchObject({ ok: false, error: "unknown action: nope" });
+  });
+
+  it("flushes queued browser events before handling a command", async () => {
+    const api = createBrowserMock();
+    const queue = { push: vi.fn() };
+    const currentPage = { isClosed: () => false };
+    api.getEventQueue = vi.fn(() => queue as any);
+    api.getCurrentPage = vi.fn(() => currentPage as any);
+    const run = createRunner(api);
+
+    await run({ action: "logs" });
+
+    expect(api.flushBrowserEvents).toHaveBeenCalledWith(currentPage, queue);
+    expect(api.logs).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips event flush when there is no current page", async () => {
+    const api = createBrowserMock();
+    const queue = { push: vi.fn() };
+    api.getEventQueue = vi.fn(() => queue as any);
+    api.getCurrentPage = vi.fn(() => null);
+    const run = createRunner(api);
+
+    await run({ action: "logs" });
+
+    expect(api.flushBrowserEvents).not.toHaveBeenCalled();
+    expect(api.logs).toHaveBeenCalledTimes(1);
   });
 });
 

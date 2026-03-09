@@ -4,6 +4,8 @@ import type { Socket } from "node:net";
 import { fileURLToPath } from "node:url";
 import * as browser from "./browser.js";
 import { socketDir, socketPath, pidFile } from "./paths.js";
+import { EventQueue } from "./event-queue.js";
+import * as networkLog from "./network.js";
 
 export type BrowserApi = typeof browser;
 export type Cmd = {
@@ -31,6 +33,19 @@ export function cleanError(err: unknown) {
 
 export function createRunner(api: BrowserApi = browser) {
   return async function run(cmd: Cmd) {
+    // Flush browser events to daemon queue before processing command
+    const queue = api.getEventQueue();
+    if (queue) {
+      try {
+        const currentPage = api.getCurrentPage();
+        if (currentPage) {
+          await api.flushBrowserEvents(currentPage, queue);
+        }
+      } catch {
+        // Ignore flush errors (page might not be open yet)
+      }
+    }
+
     // Browser control
     if (cmd.action === "open") {
       await api.open(cmd.url);
@@ -155,6 +170,11 @@ export async function dispatchLine(
 }
 
 export function startDaemon() {
+  // Initialize event queue
+  const eventQueue = new EventQueue(1000);
+  browser.setEventQueue(eventQueue);
+  networkLog.setEventQueue(eventQueue);
+
   const run = createRunner();
   mkdirSync(socketDir, { recursive: true, mode: 0o700 });
   removeSocketFile();

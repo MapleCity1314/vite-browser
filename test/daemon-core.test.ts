@@ -95,6 +95,18 @@ describe("daemon core runner", () => {
     expect(String(result.data)).toContain("repeated-full-reload");
   });
 
+  it("returns a no-correlation report when there are no current errors", async () => {
+    const api = createBrowserMock();
+    api.errors = vi.fn(async () => "no errors");
+    const run = createRunner(api);
+
+    const result = await run({ action: "correlate-errors", windowMs: 5000 });
+
+    expect(result).toMatchObject({ ok: true });
+    expect(String(result.data)).toContain("# Error Correlation");
+    expect(String(result.data)).toContain("No recent HMR events correlated");
+  });
+
   it("flushes queued browser events before handling a command", async () => {
     const api = createBrowserMock();
     const queue = { push: vi.fn() };

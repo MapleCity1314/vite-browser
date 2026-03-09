@@ -66,6 +66,12 @@ describe.sequential("evals-e2e: vite runtime tools", () => {
 
     const graphClear = await runCli(["vite", "module-graph", "clear"]);
     expect(graphClear).toContain("cleared module-graph baseline");
+
+    const correlation = await runCli(["correlate", "errors", "--mapped", "--window", "5000"], true);
+    expect(correlation).toContain("# Error Correlation");
+
+    const diagnosis = await runCli(["diagnose", "hmr", "--limit", "20"], true);
+    expect(diagnosis).toContain("# HMR Diagnosis");
   });
 
   it("covers mapped errors flow with temporary compile error", async () => {

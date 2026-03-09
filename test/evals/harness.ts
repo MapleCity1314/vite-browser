@@ -10,6 +10,7 @@ export type EvalCmd = {
   action: string;
   mode?: string;
   limit?: number;
+  windowMs?: number;
   filter?: string;
   mapped?: boolean;
   inlineSource?: boolean;

@@ -22,6 +22,8 @@ describe("cli smoke", () => {
     expect(res.code).toBe(0);
     expect(res.stdout).toContain("SVELTE COMMANDS");
     expect(res.stdout).toContain("svelte tree [id]");
+    expect(res.stdout).toContain("correlate errors");
+    expect(res.stdout).toContain("diagnose hmr");
   });
 
   it("handles unknown command", async () => {
@@ -126,6 +128,29 @@ describe("cli smoke", () => {
     expect(res.code).toBe(0);
     expect(res.stdout.trim()).toContain("# Vite Module Graph Trace");
   });
+
+  it("sends correlate and diagnose commands through socket protocol", async () => {
+    const session = `test-${process.pid}-${Date.now()}-corr-diag`;
+    const { server, pidFile, socketPath } = await startFakeDaemon(session);
+
+    resources.push(() => {
+      server.close();
+      rmSync(pidFile, { force: true });
+      if (process.platform !== "win32") rmSync(socketPath, { force: true });
+    });
+
+    const correlate = await runCli(["correlate", "errors", "--mapped", "--window", "5000"], {
+      VITE_BROWSER_SESSION: session,
+    });
+    expect(correlate.code).toBe(0);
+    expect(correlate.stdout.trim()).toContain("# Error Correlation");
+
+    const diagnose = await runCli(["diagnose", "hmr", "--limit", "25"], {
+      VITE_BROWSER_SESSION: session,
+    });
+    expect(diagnose.code).toBe(0);
+    expect(diagnose.stdout.trim()).toContain("# HMR Diagnosis");
+  });
 });
 
 async function startFakeDaemon(session: string) {
@@ -169,6 +194,10 @@ async function startFakeDaemon(session: string) {
               cmd.mode === "trace"
                 ? { id: cmd.id, ok: true, data: "# Vite Module Graph Trace\nAdded: 1, Removed: 0" }
                 : { id: cmd.id, ok: true, data: "# Vite Module Graph (loaded resources)" };
+          } else if (cmd.action === "correlate-errors") {
+            payload = { id: cmd.id, ok: true, data: "# Error Correlation\n\n## Correlation\nConfidence: high" };
+          } else if (cmd.action === "diagnose-hmr") {
+            payload = { id: cmd.id, ok: true, data: "# HMR Diagnosis\n\n## missing-module\nStatus: fail" };
           } else {
             payload = { id: cmd.id, ok: false, error: `unsupported: ${cmd.action}` };
           }

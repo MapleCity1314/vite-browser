@@ -7,6 +7,7 @@ It gives agents and developers structured access to:
 - Vue, React, and Svelte runtime state
 - Vite HMR activity and runtime health
 - event-window correlation between current errors and recent hot updates
+- early propagation diagnostics from store/module updates into rerender paths
 - rule-based HMR diagnosis with confidence levels
 - module graph snapshots and diffs
 - mapped error output with optional source snippets
@@ -51,6 +52,7 @@ Most browser CLIs are optimized for automation. Most framework devtools are opti
 - it can inspect framework state like a devtools bridge
 - it can explain Vite-specific behavior like HMR updates and module graph changes
 - it can correlate recent updates with current failures
+- it can start tracing how store/module changes propagate into rerender paths
 - it returns structured text that AI agents can consume directly in loops
 
 ## Positioning
@@ -90,6 +92,8 @@ vite-browser detect
 vite-browser vite runtime
 vite-browser errors --mapped --inline-source
 vite-browser correlate errors --mapped --window 5000
+vite-browser correlate renders --window 5000
+vite-browser diagnose propagation --window 5000
 vite-browser diagnose hmr --limit 50
 vite-browser vite hmr trace --limit 20
 vite-browser vite module-graph trace --limit 50
@@ -141,6 +145,26 @@ Confidence: high
 HMR update observed within 5000ms of the current error
 Matching modules: /src/App.tsx
 
+$ vite-browser correlate renders --window 5000
+# Render Correlation
+Confidence: high
+Recent source/store updates likely propagated through 1 render step(s).
+
+## Store Updates
+- cart
+
+## Changed Keys
+- items
+
+## Render Path
+- AppShell > ShoppingCart > CartSummary
+
+$ vite-browser diagnose propagation --window 5000
+# Propagation Diagnosis
+Status: fail
+Confidence: high
+A plausible store -> render -> error propagation path was found.
+
 $ vite-browser diagnose hmr --limit 50
 # HMR Diagnosis
 ## missing-module
@@ -161,6 +185,8 @@ Suggestion: Verify the import path, file extension, alias configuration, and whe
   - HMR summary/timeline/clear
   - module-graph snapshot/diff/clear
   - error/HMR correlation over recent event windows
+  - render/store propagation correlation over recent event windows
+  - early propagation diagnosis with store updates, changed keys, and render paths
   - rule-based HMR diagnosis with confidence levels
   - source-mapped errors with optional inline source snippet
 - Debug utilities: console logs, network tracing, screenshot, page `eval`
@@ -173,6 +199,8 @@ Suggestion: Verify the import path, file extension, alias configuration, and whe
 vite-browser vite runtime
 vite-browser errors --mapped --inline-source
 vite-browser correlate errors --mapped --window 5000
+vite-browser correlate renders --window 5000
+vite-browser diagnose propagation --window 5000
 vite-browser diagnose hmr --limit 50
 vite-browser vite hmr trace --limit 50
 vite-browser vite module-graph trace --limit 200
@@ -207,7 +235,7 @@ vite-browser svelte tree
 - linking current errors to recent HMR/module activity
 - detecting several common HMR failure patterns quickly
 
-It is not yet a full propagation-trace engine. In particular, it does not reliably infer deep chains like `store -> component A -> component B -> error` across arbitrary component graphs.
+The current `v0.3` work adds early propagation diagnostics, including `correlate renders` and `diagnose propagation`, but it is not yet a full propagation-trace engine. In particular, it does not reliably infer deep chains like `store -> component A -> component B -> error` across arbitrary component graphs.
 
 ## Command Reference
 
@@ -247,8 +275,10 @@ vite-browser errors
 vite-browser errors --mapped
 vite-browser errors --mapped --inline-source
 vite-browser correlate errors [--window <ms>]
+vite-browser correlate renders [--window <ms>]
 vite-browser correlate errors --mapped --inline-source
 vite-browser diagnose hmr [--window <ms>] [--limit <n>]
+vite-browser diagnose propagation [--window <ms>]
 ```
 
 ### Utilities

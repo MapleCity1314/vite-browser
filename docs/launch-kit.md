@@ -4,11 +4,11 @@ This file collects short and long-form copy for introducing `vite-browser`.
 
 ## One-line Pitch
 
-`vite-browser` is a runtime diagnostics CLI for Vite apps that exposes framework state, HMR traces, event correlation, and HMR diagnosis as structured commands for agents and developers.
+`vite-browser` is a runtime diagnostics CLI for Vite apps that exposes framework state, HMR traces, event correlation, propagation clues, and HMR diagnosis as structured commands for agents and developers.
 
 ## Short Project Description
 
-`vite-browser` helps debug Vite applications from the terminal. Instead of relying only on a GUI devtools panel, it exposes Vue, React, and Svelte runtime state plus Vite-specific diagnostics like HMR activity, module graph changes, mapped build errors, recent-error correlation, and rule-based HMR diagnosis as structured shell output.
+`vite-browser` helps debug Vite applications from the terminal. Instead of relying only on a GUI devtools panel, it exposes Vue, React, and Svelte runtime state plus Vite-specific diagnostics like HMR activity, module graph changes, mapped build errors, recent-error correlation, propagation hints from store/rerender activity, and rule-based HMR diagnosis as structured shell output.
 
 This makes it useful both for local debugging and for AI coding agents that need machine-readable insight into what a Vite app is doing at runtime.
 
@@ -16,13 +16,13 @@ This makes it useful both for local debugging and for AI coding agents that need
 
 `vite-browser` is built for agent loops, not only for manual terminal use.
 
-The key idea is simple: models do much better when runtime state is available as structured shell output instead of hidden behind a visual DevTools workflow. `vite-browser` exposes framework state, Vite runtime health, HMR signals, module graph diffs, mapped errors, correlation between recent updates and current failures, diagnosis hits, logs, and network activity as commands that can be queried repeatedly and reasoned about step by step.
+The key idea is simple: models do much better when runtime state is available as structured shell output instead of hidden behind a visual DevTools workflow. `vite-browser` exposes framework state, Vite runtime health, HMR signals, module graph diffs, mapped errors, correlation between recent updates and current failures, early propagation traces, diagnosis hits, logs, and network activity as commands that can be queried repeatedly and reasoned about step by step.
 
 Its command model is also agent-friendly. Each CLI call is a stateless request against a long-lived browser daemon, so agents can iterate on a running app without having to rebuild browser lifecycle management for every step.
 
 ## GitHub / Release Blurb
 
-`vite-browser` is a debugging toolchain for Vite apps with a strong focus on runtime diagnostics. It combines framework inspection for Vue/React/Svelte with Vite-aware signals like HMR traces, module graph diffs, source-mapped errors, recent-error correlation, rule-based diagnosis, network logs, screenshots, and eval support.
+`vite-browser` is a debugging toolchain for Vite apps with a strong focus on runtime diagnostics. It combines framework inspection for Vue/React/Svelte with Vite-aware signals like HMR traces, module graph diffs, source-mapped errors, recent-error correlation, early propagation diagnosis, network logs, screenshots, and eval support.
 
 It is designed for both human developers and AI agents that need structured runtime visibility instead of a GUI-only workflow.
 
@@ -34,6 +34,7 @@ It exposes:
 - Vue / React / Svelte runtime state
 - Vite HMR traces
 - error-to-HMR correlation
+- render/store propagation clues
 - rule-based HMR diagnosis
 - module graph snapshots + diffs
 - mapped errors with inline source
@@ -58,6 +59,8 @@ Current capabilities include:
 - HMR summary and trace
 - module graph snapshot and diff
 - error/HMR correlation over recent event windows
+- render/store propagation correlation over recent event windows
+- early propagation diagnosis with store updates, changed keys, and render paths
 - rule-based HMR diagnosis with confidence levels
 - mapped errors with optional inline source snippets
 - network, logs, screenshots, and page eval

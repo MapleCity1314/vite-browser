@@ -33,6 +33,8 @@ describe("cli core helpers", () => {
     expect(printUsage()).toContain("vite-browser - Programmatic access");
     expect(printUsage()).toContain("vite module-graph trace");
     expect(printUsage()).toContain("correlate errors");
+    expect(printUsage()).toContain("correlate renders");
+    expect(printUsage()).toContain("diagnose propagation");
   });
 
   it("exits with error result", () => {
@@ -112,6 +114,18 @@ describe("cli runner", () => {
       inlineSource: false,
       windowMs: 7000,
       limit: 25,
+    });
+
+    const ctx6 = createIo();
+    await expectExit(runCli(["node", "cli", "correlate", "renders", "--window", "6000"], ctx6.io));
+    expect(ctx6.send).toHaveBeenLastCalledWith("correlate-renders", {
+      windowMs: 6000,
+    });
+
+    const ctx7 = createIo();
+    await expectExit(runCli(["node", "cli", "diagnose", "propagation", "--window", "6000"], ctx7.io));
+    expect(ctx7.send).toHaveBeenLastCalledWith("diagnose-propagation", {
+      windowMs: 6000,
     });
   });
 

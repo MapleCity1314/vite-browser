@@ -94,6 +94,30 @@ describe.sequential("evals-e2e: vite runtime tools", () => {
       expect(noErrors).toContain("no errors");
     }
   });
+
+  it("covers propagation commands with a real Pinia store update", async () => {
+    await runCli(["open", baseUrl]);
+
+    const update = await runCli([
+      "eval",
+      "(() => { const store = window.__PINIA__?._s?.get('cart'); if (!store) return { ok: false }; store.addToCart(store.products[0]); return { ok: true, totalItems: store.totalItems, totalPrice: store.totalPrice }; })()",
+    ]);
+    expect(update).toContain('"ok": true');
+
+    await sleep(500);
+
+    const correlation = await runCli(["correlate", "renders", "--window", "5000"], true);
+    expect(correlation).toContain("# Render Correlation");
+    expect(correlation).toContain("## Store Updates");
+    expect(correlation).toContain("cart");
+    expect(correlation).toContain("## Render Path");
+
+    const diagnosis = await runCli(["diagnose", "propagation", "--window", "5000"], true);
+    expect(diagnosis).toContain("# Propagation Diagnosis");
+    expect(diagnosis).toMatch(
+      /store -> render -> error|Render activity overlaps with repeated network work|Propagation data is present but not yet conclusive/,
+    );
+  });
 });
 
 async function runCli(args: string[], allowFail = false): Promise<string> {

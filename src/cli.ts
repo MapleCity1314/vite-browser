@@ -173,12 +173,24 @@ export async function runCli(argv: string[], io: CliIo) {
     exit(io, res, res.ok && res.data ? String(res.data) : "");
   }
 
+  if (cmd === "correlate" && arg === "renders") {
+    const windowMs = parseNumberFlag(args, "--window", 5000);
+    const res = await io.send("correlate-renders", { windowMs });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
   if (cmd === "diagnose" && arg === "hmr") {
     const mapped = args.includes("--mapped");
     const inlineSource = args.includes("--inline-source");
     const windowMs = parseNumberFlag(args, "--window", 5000);
     const limit = parseNumberFlag(args, "--limit", 50);
     const res = await io.send("diagnose-hmr", { mapped, inlineSource, windowMs, limit });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
+  if (cmd === "diagnose" && arg === "propagation") {
+    const windowMs = parseNumberFlag(args, "--window", 5000);
+    const res = await io.send("diagnose-propagation", { windowMs });
     exit(io, res, res.ok && res.data ? String(res.data) : "");
   }
 
@@ -263,9 +275,12 @@ VITE COMMANDS
   errors --mapped                     Show errors with source-map mapping
   errors --mapped --inline-source     Include mapped source snippets
   correlate errors [--window <ms>]    Correlate current errors with recent HMR events
+  correlate renders [--window <ms>]   Summarize recent render/update propagation evidence
   correlate errors --mapped           Correlate mapped errors with recent HMR events
   diagnose hmr [--window <ms>]        Diagnose HMR failures from runtime, errors, and trace data
   diagnose hmr [--limit <n>]          Control how many recent HMR trace entries are inspected
+  diagnose propagation [--window <ms>]
+                                     Diagnose likely update -> render -> error propagation
   logs                                Show dev server logs
 
 UTILITIES

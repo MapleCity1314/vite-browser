@@ -2,6 +2,7 @@ export type VBEventType =
   | 'hmr-update'
   | 'hmr-error'
   | 'module-change'
+  | 'store-update'
   | 'network'
   | 'error'
   | 'render';

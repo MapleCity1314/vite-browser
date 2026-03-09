@@ -178,12 +178,27 @@ describe("browser runtime flows", () => {
 
   it("flushes queued browser events into the daemon queue", async () => {
     const queue = new EventQueue();
-    mockState.evaluateResults = [[{ timestamp: 1, type: "hmr-update", payload: { path: "/src/App.tsx" } }]];
+    mockState.evaluateResults = [[
+      { timestamp: 1, type: "hmr-update", payload: { path: "/src/App.tsx" } },
+      {
+        timestamp: 2,
+        type: "render",
+        payload: {
+          component: "Dashboard",
+          path: "AppShell > Dashboard",
+          framework: "vue",
+          reason: "dom-mutation",
+          storeHints: ["main"],
+          changedKeys: ["filters"],
+        },
+      },
+    ]];
 
     await browser.flushBrowserEvents(mockState.page as never, queue);
 
-    expect(queue.all()).toHaveLength(1);
+    expect(queue.all()).toHaveLength(2);
     expect(queue.all()[0]).toMatchObject({ type: "hmr-update" });
+    expect(queue.all()[1]).toMatchObject({ type: "render" });
   });
 
   it("detects framework-specific runtime inspection flows", async () => {

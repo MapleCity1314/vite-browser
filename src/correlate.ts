@@ -1,3 +1,12 @@
+import {
+  extractModules,
+  extractModulesFromHmrEvent,
+  getHmrEvents,
+  getNetworkEvents,
+  getRenderEvents,
+  uniqueStrings,
+  type HmrVBEvent,
+} from "./event-analysis.js";
 import type { VBEvent } from "./event-queue.js";
 
 export type CorrelationConfidence = "high" | "medium" | "low";
@@ -8,7 +17,7 @@ export type ErrorCorrelation = {
   confidence: CorrelationConfidence;
   windowMs: number;
   matchingModules: string[];
-  relatedEvents: VBEvent[];
+  relatedEvents: HmrVBEvent[];
 };
 
 export type RenderNetworkCorrelation = {
@@ -19,32 +28,24 @@ export type RenderNetworkCorrelation = {
   urls: string[];
 };
 
-type EventPayload = Record<string, unknown>;
-
-const MODULE_PATTERNS = [
-  /\/src\/[^\s"'`):]+/g,
-  /\/@fs\/[^\s"'`):]+/g,
-  /[A-Za-z]:\\[^:\n]+/g,
-];
-
 export function correlateErrorWithHMR(
   errorText: string,
   events: VBEvent[],
   windowMs = 5000,
 ): ErrorCorrelation | null {
-  const recentEvents = events.filter((event) => event.type === "hmr-update" || event.type === "hmr-error");
+  const recentEvents = getHmrEvents(events);
   if (recentEvents.length === 0) return null;
 
   const errorModules = extractModules(errorText);
   const matchedEvents = recentEvents.filter((event) => {
-    const modules = extractModulesFromEvent(event);
+    const modules = extractModulesFromHmrEvent(event);
     if (errorModules.length === 0) return event.type === "hmr-error";
     return modules.some((module) => errorModules.includes(module));
   });
 
   const relatedEvents = matchedEvents.length > 0 ? matchedEvents : recentEvents;
-  const matchingModules = unique(
-    relatedEvents.flatMap((event) => extractModulesFromEvent(event)).filter((module) => errorModules.includes(module)),
+  const matchingModules = uniqueStrings(
+    relatedEvents.flatMap((event) => extractModulesFromHmrEvent(event)).filter((module) => errorModules.includes(module)),
   );
 
   const confidence = inferConfidence(errorModules, matchingModules, relatedEvents);
@@ -67,8 +68,8 @@ export function correlateErrorWithHMR(
 }
 
 export function correlateRenderWithNetwork(events: VBEvent[], requestThreshold = 3): RenderNetworkCorrelation | null {
-  const renderEvents = events.filter((event) => event.type === "render");
-  const networkEvents = events.filter((event) => event.type === "network");
+  const renderEvents = getRenderEvents(events);
+  const networkEvents = getNetworkEvents(events);
   if (renderEvents.length === 0 || networkEvents.length === 0) return null;
 
   const latestRender = renderEvents[renderEvents.length - 1];
@@ -77,10 +78,10 @@ export function correlateRenderWithNetwork(events: VBEvent[], requestThreshold =
   const overlappingNetwork = networkEvents.filter(
     (event) => event.timestamp >= start && event.timestamp <= end,
   );
-  const urls = unique(
+  const urls = uniqueStrings(
     overlappingNetwork
-      .map((event) => (event.payload as EventPayload).url)
-      .filter((url): url is string => typeof url === "string"),
+      .map((event) => event.payload.url)
+      .filter((url) => typeof url === "string" && url.length > 0),
   );
 
   if (overlappingNetwork.length < requestThreshold) return null;
@@ -115,13 +116,12 @@ export function formatErrorCorrelationReport(errorText: string, correlation: Err
   return lines.join("\n");
 }
 
-function formatEventLine(event: VBEvent): string {
-  const payload = event.payload as EventPayload;
-  const path = payload.path;
-  const message = payload.message;
+function formatEventLine(event: HmrVBEvent): string {
+  const path = event.payload.path;
+  const message = event.payload.message;
   if (typeof path === "string") return `- ${event.type}: ${path}`;
   if (typeof message === "string") return `- ${event.type}: ${message}`;
-  return `- ${event.type}: ${JSON.stringify(payload)}`;
+  return `- ${event.type}: ${JSON.stringify(event.payload)}`;
 }
 
 function inferConfidence(
@@ -133,32 +133,4 @@ function inferConfidence(
   if (events.some((event) => event.type === "hmr-error")) return "medium";
   if (errorModules.length === 0 && events.length > 0) return "low";
   return "medium";
-}
-
-function extractModulesFromEvent(event: VBEvent): string[] {
-  const payload = event.payload as EventPayload;
-  const candidates: string[] = [];
-  if (typeof payload.path === "string") candidates.push(payload.path);
-  if (typeof payload.message === "string") candidates.push(payload.message);
-  if (Array.isArray(payload.updates)) {
-    for (const update of payload.updates) {
-      if (update && typeof update === "object" && typeof (update as EventPayload).path === "string") {
-        candidates.push((update as EventPayload).path as string);
-      }
-    }
-  }
-  return unique(candidates.flatMap((candidate) => extractModules(candidate)));
-}
-
-function extractModules(text: string): string[] {
-  const matches = MODULE_PATTERNS.flatMap((pattern) => text.match(pattern) ?? []);
-  return unique(matches.map(normalizeModulePath).filter(Boolean));
-}
-
-function normalizeModulePath(value: string): string {
-  return value.replace(/[),.:]+$/, "");
-}
-
-function unique(values: string[]): string[] {
-  return [...new Set(values)];
 }

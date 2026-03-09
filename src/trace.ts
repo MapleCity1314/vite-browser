@@ -1,6 +1,20 @@
+import {
+  extractModulesFromHmrEvent,
+  getChangedKeys,
+  getErrorEvents,
+  getErrorMessage,
+  getHmrEvents,
+  getNetworkEvents,
+  getNetworkUrl,
+  getRenderEvents,
+  getRenderLabel,
+  getStoreHints,
+  getStoreName,
+  getStoreUpdateEvents,
+  sortEventsChronologically,
+  uniqueStrings,
+} from "./event-analysis.js";
 import type { VBEvent } from "./event-queue.js";
-
-type EventPayload = Record<string, unknown>;
 
 export type PropagationTrace = {
   summary: string;
@@ -15,54 +29,32 @@ export type PropagationTrace = {
   events: VBEvent[];
 };
 
-const MODULE_PATTERNS = [
-  /\/src\/[^\s"'`):]+/g,
-  /\/@fs\/[^\s"'`):]+/g,
-  /[A-Za-z]:\\[^:\n]+/g,
-];
-
 export function correlateRenderPropagation(events: VBEvent[]): PropagationTrace | null {
-  const recent = events.slice().sort((a, b) => a.timestamp - b.timestamp);
-  const renderEvents = recent.filter((event) => event.type === "render");
+  const recent = sortEventsChronologically(events);
+  const renderEvents = getRenderEvents(recent);
   if (renderEvents.length === 0) return null;
 
-  const hmrEvents = recent.filter((event) => event.type === "hmr-update" || event.type === "hmr-error");
-  const storeEvents = recent.filter((event) => event.type === "store-update");
-  const networkEvents = recent.filter((event) => event.type === "network");
-  const errorEvents = recent.filter((event) => event.type === "error");
+  const hmrEvents = getHmrEvents(recent);
+  const storeEvents = getStoreUpdateEvents(recent);
+  const networkEvents = getNetworkEvents(recent);
+  const errorEvents = getErrorEvents(recent);
 
-  const sourceModules = unique(hmrEvents.flatMap(extractModulesFromEvent));
-  const storeUpdates = unique(
-    storeEvents
-      .map((event) => (event.payload as EventPayload).store)
-      .filter((value): value is string => typeof value === "string" && value.length > 0),
+  const sourceModules = uniqueStrings(hmrEvents.flatMap(extractModulesFromHmrEvent));
+  const storeUpdates = uniqueStrings(
+    storeEvents.map((event) => getStoreName(event.payload)).filter((value): value is string => value != null),
   );
-  const changedKeys = unique(
-    storeEvents.flatMap((event) => {
-      const keys = (event.payload as EventPayload).changedKeys;
-      return Array.isArray(keys)
-        ? keys.filter((value): value is string => typeof value === "string" && value.length > 0)
-        : [];
-    }),
+  const changedKeys = uniqueStrings(
+    storeEvents.flatMap((event) => getChangedKeys(event.payload)),
   );
-  const renderComponents = unique(renderEvents.map(extractComponentLabel).filter(Boolean));
-  const storeHints = unique(
-    renderEvents.flatMap((event) => {
-      const hints = (event.payload as EventPayload).storeHints;
-      return Array.isArray(hints)
-        ? hints.filter((value): value is string => typeof value === "string" && value.length > 0)
-        : [];
-    }),
+  const renderComponents = uniqueStrings(renderEvents.map((event) => getRenderLabel(event.payload)).filter(Boolean));
+  const storeHints = uniqueStrings(
+    renderEvents.flatMap((event) => getStoreHints(event.payload)),
   );
-  const networkUrls = unique(
-    networkEvents
-      .map((event) => (event.payload as EventPayload).url)
-      .filter((value): value is string => typeof value === "string"),
+  const networkUrls = uniqueStrings(
+    networkEvents.map((event) => getNetworkUrl(event.payload)).filter((value): value is string => value != null),
   );
-  const errorMessages = unique(
-    errorEvents
-      .map((event) => (event.payload as EventPayload).message)
-      .filter((value): value is string => typeof value === "string" && value.length > 0),
+  const errorMessages = uniqueStrings(
+    errorEvents.map((event) => getErrorMessage(event.payload)).filter((value): value is string => value != null),
   );
 
   const confidence = inferConfidence(sourceModules, storeUpdates, renderComponents, errorMessages);
@@ -134,40 +126,7 @@ function inferConfidence(
   return "low";
 }
 
-function extractModulesFromEvent(event: VBEvent): string[] {
-  const payload = event.payload as EventPayload;
-  const candidates: string[] = [];
-  if (typeof payload.path === "string") candidates.push(payload.path);
-  if (typeof payload.message === "string") candidates.push(payload.message);
-  if (Array.isArray(payload.updates)) {
-    for (const update of payload.updates) {
-      if (update && typeof update === "object" && typeof (update as EventPayload).path === "string") {
-        candidates.push((update as EventPayload).path as string);
-      }
-    }
-  }
-  return unique(candidates.flatMap(extractModules));
-}
-
-function extractModules(text: string): string[] {
-  const matches = MODULE_PATTERNS.flatMap((pattern) => text.match(pattern) ?? []);
-  return unique(matches.map((value) => value.replace(/[),.:]+$/, "")));
-}
-
-function extractComponentLabel(event: VBEvent): string {
-  const payload = event.payload as EventPayload;
-  const component = payload.component;
-  const path = payload.path;
-  if (typeof path === "string" && path.length > 0) return path;
-  if (typeof component === "string" && component.length > 0) return component;
-  return "anonymous-render";
-}
-
 function formatList(values: string[]): string[] {
   if (values.length === 0) return ["(none)"];
   return values.map((value) => `- ${value}`);
-}
-
-function unique(values: string[]): string[] {
-  return [...new Set(values)];
 }

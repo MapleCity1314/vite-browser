@@ -52,7 +52,7 @@ Most browser CLIs are optimized for automation. Most framework devtools are opti
 - it can inspect framework state like a devtools bridge
 - it can explain Vite-specific behavior like HMR updates and module graph changes
 - it can correlate recent updates with current failures
-- it can start tracing how store/module changes propagate into rerender paths
+- it can surface high-confidence clues about how store/module changes propagate into rerender paths
 - it returns structured text that AI agents can consume directly in loops
 
 ## Positioning
@@ -235,7 +235,7 @@ vite-browser svelte tree
 - linking current errors to recent HMR/module activity
 - detecting several common HMR failure patterns quickly
 
-The current `v0.3` work adds early propagation diagnostics, including `correlate renders` and `diagnose propagation`, but it is not yet a full propagation-trace engine. In particular, it does not reliably infer deep chains like `store -> component A -> component B -> error` across arbitrary component graphs.
+The current `v0.3` work adds early propagation diagnostics, including `correlate renders` and `diagnose propagation`, but it is not yet a full propagation-trace engine. Treat these commands as high-confidence propagation clues, not strict causal proof. In particular, they do not reliably infer deep chains like `store -> component A -> component B -> error` across arbitrary component graphs, and they intentionally fall back to conservative output when evidence is incomplete.
 
 ## Command Reference
 

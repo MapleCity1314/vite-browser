@@ -16,13 +16,13 @@ This makes it useful both for local debugging and for AI coding agents that need
 
 `vite-browser` is built for agent loops, not only for manual terminal use.
 
-The key idea is simple: models do much better when runtime state is available as structured shell output instead of hidden behind a visual DevTools workflow. `vite-browser` exposes framework state, Vite runtime health, HMR signals, module graph diffs, mapped errors, correlation between recent updates and current failures, early propagation traces, diagnosis hits, logs, and network activity as commands that can be queried repeatedly and reasoned about step by step.
+The key idea is simple: models do much better when runtime state is available as structured shell output instead of hidden behind a visual DevTools workflow. `vite-browser` exposes framework state, Vite runtime health, HMR signals, module graph diffs, mapped errors, correlation between recent updates and current failures, early propagation clues, diagnosis hits, logs, and network activity as commands that can be queried repeatedly and reasoned about step by step.
 
 Its command model is also agent-friendly. Each CLI call is a stateless request against a long-lived browser daemon, so agents can iterate on a running app without having to rebuild browser lifecycle management for every step.
 
 ## GitHub / Release Blurb
 
-`vite-browser` is a debugging toolchain for Vite apps with a strong focus on runtime diagnostics. It combines framework inspection for Vue/React/Svelte with Vite-aware signals like HMR traces, module graph diffs, source-mapped errors, recent-error correlation, early propagation diagnosis, network logs, screenshots, and eval support.
+`vite-browser` is a debugging toolchain for Vite apps with a strong focus on runtime diagnostics. It combines framework inspection for Vue/React/Svelte with Vite-aware signals like HMR traces, module graph diffs, source-mapped errors, recent-error correlation, early propagation clues, network logs, screenshots, and eval support.
 
 It is designed for both human developers and AI agents that need structured runtime visibility instead of a GUI-only workflow.
 
@@ -85,6 +85,7 @@ Use these points consistently:
 - It is strong at first-pass runtime triage and narrowing the search space for an AI agent.
 - `v0.2.2` is the stabilization patch that tightens wording, evidence handling, and diagnosis coverage without changing the product model.
 - It does not yet claim full component propagation tracing or perfect root-cause inference across deep dependency chains.
+- `v0.3` propagation output should be positioned as high-confidence clues and conservative narrowing, not strict causal proof.
 
 ## Suggested GitHub Topics
 

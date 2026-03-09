@@ -31,7 +31,7 @@ vite-browser vite module-graph --limit 200
 vite-browser vite module-graph trace --limit 200
 ```
 
-Use `diagnose propagation` first when the question is about rerenders, component paths, store changes, or "what update actually flowed into this failure". Use `diagnose hmr` first when the problem still looks primarily transport/HMR-layer.
+Use `diagnose propagation` first when the question is about rerenders, component paths, store changes, or "what update actually flowed into this failure". Treat its output as a high-confidence propagation clue, not strict causal proof. Use `diagnose hmr` first when the problem still looks primarily transport/HMR-layer.
 
 ## Diagnostic patterns
 
@@ -63,6 +63,7 @@ Use `diagnose propagation` first when the question is about rerenders, component
 2. `correlate renders --window 5000`
 3. `diagnose propagation --window 5000`
 4. Use `Store Updates`, `Changed Keys`, and `Render Path` to choose the first store/component to inspect.
+5. If the output is inconclusive or says no trace is available, keep the conclusion conservative and do not overstate a causal chain.
 
 ### Stack mapping
 

@@ -137,4 +137,85 @@ describe("eval: propagation diagnosis", () => {
     expect(diagnosis.stdout).toContain("Render activity overlaps with repeated network work.");
     expect(diagnosis.stdout).toContain("Status: warn");
   });
+
+  it("keeps propagation diagnosis conservative when evidence is incomplete", async () => {
+    const session = `eval-propagation-inconclusive-${process.pid}-${Date.now()}`;
+    const daemon = await startEvalDaemon(session, (cmd: EvalCmd) => {
+      if (cmd.action === "correlate-renders") {
+        return {
+          ok: true,
+          data: [
+            "# Render Correlation",
+            "",
+            "Confidence: low",
+            "Render activity observed.",
+            "",
+            "## Source Updates",
+            "(none)",
+            "",
+            "## Render Path",
+            "- AppShell > Dashboard",
+          ].join("\n"),
+        };
+      }
+
+      if (cmd.action === "diagnose-propagation") {
+        return {
+          ok: true,
+          data: [
+            "# Propagation Diagnosis",
+            "",
+            "Status: pass",
+            "Confidence: low",
+            "Propagation data is present but not yet conclusive.",
+            "The current trace shows render activity, but not enough linked source/error evidence for a stronger diagnosis.",
+            "Suggestion: Use the render correlation output to narrow the likely component path, then inspect source updates and runtime errors together.",
+          ].join("\n"),
+        };
+      }
+
+      return { ok: true, data: "ok" };
+    });
+    cleanups.push(daemon.cleanup);
+
+    const diagnosis = await runCli(["diagnose", "propagation", "--window", "5000"], {
+      VITE_BROWSER_SESSION: session,
+    });
+
+    expect(diagnosis.code).toBe(0);
+    expect(diagnosis.stdout).toContain("# Propagation Diagnosis");
+    expect(diagnosis.stdout).toContain("Status: pass");
+    expect(diagnosis.stdout).toContain("not yet conclusive");
+  });
+
+  it("keeps no-trace propagation output explicit and low-confidence", async () => {
+    const session = `eval-propagation-empty-${process.pid}-${Date.now()}`;
+    const daemon = await startEvalDaemon(session, (cmd: EvalCmd) => {
+      if (cmd.action === "diagnose-propagation") {
+        return {
+          ok: true,
+          data: [
+            "# Propagation Diagnosis",
+            "",
+            "Status: warn",
+            "Confidence: low",
+            "No propagation trace is available yet.",
+            "The current event window does not contain render/update events, so propagation reasoning cannot start.",
+            "Suggestion: Reproduce the issue once, then rerun `vite-browser correlate renders` or `vite-browser diagnose propagation`.",
+          ].join("\n"),
+        };
+      }
+
+      return { ok: true, data: "ok" };
+    });
+    cleanups.push(daemon.cleanup);
+
+    const diagnosis = await runCli(["diagnose", "propagation"], {
+      VITE_BROWSER_SESSION: session,
+    });
+
+    expect(diagnosis.code).toBe(0);
+    expect(diagnosis.stdout).toContain("Status: warn");
+    expect(diagnosis.stdout).toContain("No propagation trace is available yet.");
+  });
 });

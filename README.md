@@ -37,10 +37,10 @@ You want to know:
 ## Quickstart
 
 ```bash
-# terminal A — your app
+# terminal A - your app
 cd my-app && npm run dev
 
-# terminal B — diagnostics
+# terminal B - diagnostics
 vite-browser open http://localhost:5173
 vite-browser vite runtime
 vite-browser errors --mapped --inline-source
@@ -113,7 +113,7 @@ Models cannot visually inspect a DevTools panel. They work much better when runt
 
 `vite-browser` turns Vite runtime state, HMR activity, module graph changes, framework component trees, mapped errors, and network activity into terminal output an agent can consume directly.
 
-Each command is a one-shot request against a long-lived browser daemon — no browser lifecycle management on every step, no GUI dependency, no project config changes required.
+Each command is a one-shot request against a long-lived browser daemon - no browser lifecycle management on every step, no GUI dependency, no project config changes required.
 
 ```bash
 # an agent debugging loop looks like this
@@ -275,9 +275,9 @@ vite-browser eval <script>
 - surfacing runtime state as structured shell output
 - linking current errors to recent HMR and module activity
 - detecting common HMR failure patterns with confidence levels
-- narrowing likely store/module → render paths in Vue-first flows
+- narrowing likely store/module -> render paths in Vue-first flows
 
-`correlate renders` and `diagnose propagation` are **high-confidence propagation clues**, not strict causal proof. They do not reliably trace deep chains like `store → component A → component B → error` across arbitrary graphs, and intentionally fall back to conservative output when evidence is incomplete.
+`correlate renders` and `diagnose propagation` are **high-confidence propagation clues**, not strict causal proof. They do not reliably trace deep chains like `store -> component A -> component B -> error` across arbitrary graphs, and intentionally fall back to conservative output when evidence is incomplete.
 
 React store inspection (Zustand, Redux) and deeper cross-framework propagation tracing are on the roadmap.
 

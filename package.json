@@ -1,6 +1,6 @@
 {
   "name": "@presto1314w/vite-devtools-browser",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "description": "Runtime diagnostics CLI for Vite apps with event-stream correlation, HMR diagnosis, framework inspection, and mapped errors",
   "license": "MIT",
   "keywords": [

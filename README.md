@@ -17,16 +17,22 @@ It ships in two forms:
 - Agent Skill: scenario-based debugging workflows for coding assistants
 - CLI Runtime (`@presto1314w/vite-devtools-browser`): structured shell commands for local Vite debugging
 
-Current documented baseline: `v0.2.0`.
+Current documented baseline: `v0.2.2`.
 
 ## What's New In v0.2
 
-`v0.2.0` moves `vite-browser` from snapshot-style inspection toward runtime diagnosis:
+`v0.2.x` moves `vite-browser` from snapshot-style inspection toward runtime diagnosis:
 
 - browser/runtime events are captured into a daemon-side event queue
 - `correlate errors` links the current error to recent HMR-updated modules
 - `diagnose hmr` turns runtime, trace, and error signals into structured findings
 - skills and CLI flows now route more directly to runtime triage instead of raw log inspection
+
+`v0.2.2` is the stabilization pass for this model:
+
+- tighter `diagnose hmr` wording around websocket evidence and runtime ambiguity
+- better test coverage for the four built-in diagnosis families
+- docs and release positioning aligned around the stable `v0.2.x` surface
 
 ## Built For Agents
 
@@ -195,7 +201,7 @@ vite-browser svelte tree
 
 ## Current Boundaries
 
-`vite-browser` v0.2 is strong at:
+`vite-browser` v0.2.2 is strong at:
 
 - surfacing runtime state as structured shell output
 - linking current errors to recent HMR/module activity

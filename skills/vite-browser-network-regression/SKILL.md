@@ -2,9 +2,12 @@
 name: vite-browser-network-regression
 description: >-
   Focused workflow for API/data regressions in Vite apps using vite-browser
-  network inspection. Use whenever users report wrong data, failed requests,
-  inconsistent payloads, auth/cookie/CORS mismatches, or intermittent API
-  behavior during dev and network behavior is the dominant symptom.
+  network inspection. Make sure to use this skill whenever users mention any of:
+  wrong data, missing data, empty data, empty response, incorrect payload, API
+  error, fetch failed, request failed, 401, 403, 404, 500, 4xx, 5xx, status
+  code, CORS error, CORS blocked, authentication failed, auth issue, cookie
+  issue, session expired, inconsistent data, intermittent API, network timeout,
+  or the data is incorrect.
 ---
 
 # vite-browser-network-regression
@@ -51,3 +54,10 @@ Always include:
 3. Likely ownership (frontend request build vs backend response)
 4. Confidence: `high`, `medium`, or `low`
 5. Exact re-test command sequence
+
+## When to switch skills
+
+If diagnosis reveals the root cause is actually:
+- HMR/runtime issue (failure only after hot update, module errors) → switch to `vite-browser-runtime-diagnostics`
+- Component state or framework-specific issue → switch to `vite-browser-core-debug`
+- Need final pre-release validation → switch to `vite-browser-release-smoke`

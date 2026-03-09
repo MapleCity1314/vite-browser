@@ -80,4 +80,34 @@ describe("eval: correlation and diagnosis", () => {
     expect(res.stdout).toContain("Status: fail");
     expect(res.stdout).toContain("## repeated-full-reload");
   });
+
+  it("renders websocket diagnosis from disconnect evidence without overclaiming unknown runtime state", async () => {
+    const session = `eval-diagnose-ws-${process.pid}-${Date.now()}`;
+    const daemon = await startEvalDaemon(session, (cmd: EvalCmd) => {
+      if (cmd.action !== "diagnose-hmr") return { ok: true, data: "ok" };
+      return {
+        ok: true,
+        data: [
+          "# HMR Diagnosis",
+          "",
+          "## hmr-websocket-closed",
+          "Status: fail",
+          "Confidence: medium",
+          "The HMR websocket is not healthy.",
+          "HMR trace contains disconnect or websocket failure messages.",
+          "Suggestion: Check the dev server is running, the page is connected to the correct origin, and no proxy/firewall is blocking the websocket.",
+        ].join("\n"),
+      };
+    });
+    cleanups.push(daemon.cleanup);
+
+    const res = await runCli(["diagnose", "hmr", "--limit", "10"], {
+      VITE_BROWSER_SESSION: session,
+    });
+
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("## hmr-websocket-closed");
+    expect(res.stdout).toContain("Confidence: medium");
+    expect(res.stdout).toContain("disconnect");
+  });
 });

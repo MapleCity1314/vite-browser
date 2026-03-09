@@ -3,9 +3,12 @@ name: vite-browser-runtime-diagnostics
 description: >-
   Deep Vite runtime diagnostics for recent hot-update regressions, HMR
   instability, unexpected full reloads, module churn, stack trace mapping, and
-  "which recent update caused this" analysis. Use this whenever users mention
-  HMR issues, refresh loops, full reloads, recent edit broke page, or "can't
-  locate source from Vite error".
+  "which recent update caused this" analysis. Make sure to use this skill
+  whenever users mention any of: HMR, hot reload, hot update, full reload, page
+  refresh, unexpected refresh, recent edit broke page, recent change broke it,
+  it was working before, module errors, import failures, import resolution,
+  failed to resolve, cannot find module, circular dependency, websocket closed,
+  Vite error overlay, or can't locate source from Vite error.
 ---
 
 # vite-browser-runtime-diagnostics
@@ -75,3 +78,10 @@ Always provide:
 6. Module-graph delta conclusion
 7. Final mapped source location(s)
 8. Suggested fix order
+
+## When to switch skills
+
+If diagnosis reveals the root cause is actually:
+- Component state or framework-specific issue (wrong props, store state, router) → switch to `vite-browser-core-debug`
+- Network/API issue (wrong data, failed requests, CORS, auth) → switch to `vite-browser-network-regression`
+- Need final pre-release validation → switch to `vite-browser-release-smoke`

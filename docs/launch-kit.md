@@ -72,14 +72,15 @@ Repo: https://github.com/MapleCity1314/vite-browser
 - Against `next-browser`: `vite-browser` is for Vite workflows, not Next.js.
 - Against `vite-plugin-vue-mcp`: `vite-browser` is CLI-first and framework-mixed, not only Vue + MCP plugin integration.
 
-## Positioning Notes For v0.2
+## Positioning Notes For v0.2.x
 
 Use these points consistently:
 
-- `v0.2` is the release where `vite-browser` moves from point-in-time inspection toward diagnosis.
+- `v0.2.x` is the release line where `vite-browser` moves from point-in-time inspection toward diagnosis.
 - It can now correlate the current error with recent HMR-updated modules.
 - It can now surface diagnosis results like `missing-module`, `circular-dependency`, `hmr-websocket-closed`, and `repeated-full-reload`.
 - It is strong at first-pass runtime triage and narrowing the search space for an AI agent.
+- `v0.2.2` is the stabilization patch that tightens wording, evidence handling, and diagnosis coverage without changing the product model.
 - It does not yet claim full component propagation tracing or perfect root-cause inference across deep dependency chains.
 
 ## Suggested GitHub Topics

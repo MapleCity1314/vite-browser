@@ -15,7 +15,7 @@ It ships in two forms:
 - Agent Skill: scenario-based debugging workflows for coding assistants
 - CLI Runtime (`@presto1314w/vite-devtools-browser`): structured shell commands for local Vite debugging
 
-Current documented baseline: `v0.1.4`.
+Current documented baseline: `v0.2.0`.
 
 ## Built For Agents
 
@@ -74,6 +74,8 @@ vite-browser vue pinia
 vite-browser vite runtime
 vite-browser vite hmr trace --limit 20
 vite-browser vite module-graph trace --limit 50
+vite-browser correlate errors --mapped --window 5000
+vite-browser diagnose hmr --limit 50
 vite-browser errors --mapped --inline-source
 vite-browser network
 vite-browser close
@@ -102,6 +104,17 @@ Failed to resolve import "./missing"
 # Mapped Stack
 - http://localhost:5173/src/main.ts:12:4 -> /src/main.ts:12:4
   12 | import "./missing"
+
+$ vite-browser correlate errors --mapped --window 5000
+# Error Correlation
+...
+Confidence: high
+
+$ vite-browser diagnose hmr --limit 50
+# HMR Diagnosis
+## missing-module
+Status: fail
+Confidence: high
 ```
 
 ## Core Capabilities
@@ -114,6 +127,8 @@ Failed to resolve import "./missing"
   - runtime status summary
   - HMR summary/timeline/clear
   - module-graph snapshot/diff/clear
+  - error/HMR correlation over recent event windows
+  - rule-based HMR diagnosis with confidence levels
   - source-mapped errors with optional inline source snippet
 - Debug utilities: console logs, network tracing, screenshot, page `eval`
 
@@ -154,6 +169,9 @@ vite-browser vite module-graph clear
 vite-browser errors
 vite-browser errors --mapped
 vite-browser errors --mapped --inline-source
+vite-browser correlate errors [--window <ms>]
+vite-browser correlate errors --mapped --inline-source
+vite-browser diagnose hmr [--window <ms>] [--limit <n>]
 ```
 
 ### Utilities

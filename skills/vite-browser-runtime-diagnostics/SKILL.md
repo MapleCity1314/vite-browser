@@ -20,6 +20,8 @@ vite-browser vite hmr
 vite-browser vite hmr trace --limit 50
 vite-browser vite module-graph --limit 200
 vite-browser vite module-graph trace --limit 200
+vite-browser correlate errors --mapped --window 5000
+vite-browser diagnose hmr --limit 50
 vite-browser errors --mapped --inline-source
 ```
 
@@ -46,6 +48,18 @@ vite-browser errors --mapped --inline-source
 2. If mapping is still ambiguous, run `errors --mapped --inline-source`.
 3. Use mapped file:line as the fix entrypoint.
 
+### Error correlation
+
+1. Reproduce once.
+2. `correlate errors --mapped --window 5000`
+3. Check whether the current error overlaps with recent HMR-updated modules.
+
+### Automated diagnosis
+
+1. `diagnose hmr --limit 50`
+2. Review rule hits for `missing-module`, `circular-dependency`, `hmr-websocket-closed`, and `repeated-full-reload`.
+3. Use the highest-confidence failure first.
+
 ## Output format
 
 Always provide:
@@ -53,6 +67,6 @@ Always provide:
 1. Runtime state summary (`vite runtime`)
 2. HMR timeline conclusion
 3. Module-graph delta conclusion
-4. Final mapped source location(s)
-5. Suggested fix order
-
+4. Error/HMR correlation conclusion
+5. Final mapped source location(s)
+6. Suggested fix order

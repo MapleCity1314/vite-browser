@@ -77,6 +77,8 @@ vite-browser vite module-graph [--filter <txt>] [--limit <n>]
 vite-browser vite module-graph trace [--filter <txt>] [--limit <n>]
 vite-browser vite module-graph clear
 vite-browser errors --mapped --inline-source
+vite-browser correlate errors [--window <ms>]
+vite-browser diagnose hmr [--window <ms>] [--limit <n>]
 ```
 
 ### Utilities

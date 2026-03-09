@@ -1,7 +1,7 @@
 {
   "name": "@presto1314w/vite-devtools-browser",
-  "version": "0.1.4",
-  "description": "Runtime diagnostics CLI for Vite apps with Vue/React/Svelte DevTools, HMR tracing, module graph diff, and mapped errors",
+  "version": "0.2.0",
+  "description": "Runtime diagnostics CLI for Vite apps with event-stream correlation, HMR diagnosis, framework inspection, and mapped errors",
   "license": "MIT",
   "keywords": [
     "vite",

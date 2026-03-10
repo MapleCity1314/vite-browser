@@ -7,6 +7,7 @@ import * as browser from "./browser.js";
 import { correlateErrorWithHMR, formatErrorCorrelationReport } from "./correlate.js";
 import { diagnoseHMR, formatDiagnosisReport } from "./diagnose.js";
 import { diagnosePropagation, formatPropagationDiagnosisReport } from "./diagnose-propagation.js";
+import { extractModules } from "./event-analysis.js";
 import { socketDir, socketPath, pidFile } from "./paths.js";
 import { correlateRenderPropagation, formatPropagationTraceReport } from "./trace.js";
 import type { PropagationTrace } from "./trace.js";
@@ -127,15 +128,24 @@ export function createRunner(api: BrowserApi = browser) {
     if (cmd.action === "correlate-errors") {
       const errorText = String(await api.errors(Boolean(cmd.mapped), Boolean(cmd.inlineSource)));
       const events = queue ? queue.window(cmd.windowMs ?? 5000) : [];
+      const fallbackHmrEvents = readTrackedHmrEvents(api, cmd.windowMs ?? 5000);
+      const hmrTraceText = String(await api.viteHMRTrace("trace", 20));
+      const fallbackModules = extractModules(hmrTraceText);
+      const baseCorrelation =
+        errorText === "no errors"
+          ? null
+          : correlateErrorWithHMR(errorText, [...events, ...fallbackHmrEvents] as any, cmd.windowMs ?? 5000);
       const data = formatErrorCorrelationReport(
         errorText,
-        errorText === "no errors" ? null : correlateErrorWithHMR(errorText, events, cmd.windowMs ?? 5000),
+        errorText === "no errors"
+          ? null
+          : upgradeErrorCorrelation(baseCorrelation, fallbackModules, cmd.windowMs ?? 5000),
       );
       return { ok: true, data };
     }
     if (cmd.action === "correlate-renders") {
       const events = await getSettledEventWindow(api, queue, cmd.windowMs ?? 5000);
-      const data = formatPropagationTraceReport(await buildPropagationTrace(api, events));
+      const data = formatPropagationTraceReport(await buildPropagationTrace(api, events, cmd.windowMs ?? 5000));
       return { ok: true, data };
     }
     if (cmd.action === "diagnose-hmr") {
@@ -152,7 +162,9 @@ export function createRunner(api: BrowserApi = browser) {
     }
     if (cmd.action === "diagnose-propagation") {
       const events = await getSettledEventWindow(api, queue, cmd.windowMs ?? 5000);
-      const data = formatPropagationDiagnosisReport(diagnosePropagation(await buildPropagationTrace(api, events)));
+      const data = formatPropagationDiagnosisReport(
+        diagnosePropagation(await buildPropagationTrace(api, events, cmd.windowMs ?? 5000)),
+      );
       return { ok: true, data };
     }
     if (cmd.action === "logs") {
@@ -182,18 +194,105 @@ export function createRunner(api: BrowserApi = browser) {
   };
 }
 
-async function buildPropagationTrace(api: BrowserApi, events: Array<{ timestamp: number; type: string; payload: any }>): Promise<PropagationTrace | null> {
-  const trace = correlateRenderPropagation(events as any);
+async function buildPropagationTrace(
+  api: BrowserApi,
+  events: Array<{ timestamp: number; type: string; payload: any }>,
+  windowMs: number,
+): Promise<PropagationTrace | null> {
+  const hmrTraceText = String(await api.viteHMRTrace("trace", 20));
+  const fallbackModules = extractModules(hmrTraceText);
+  const trace = correlateRenderPropagation([...events, ...readTrackedHmrEvents(api, windowMs)] as any);
   if (!trace) return null;
-  if (trace.errorMessages.length > 0) return trace;
+
+  let augmented: PropagationTrace = trace;
+  if (augmented.sourceModules.length === 0 && fallbackModules.length > 0) {
+    augmented = {
+      ...augmented,
+      sourceModules: fallbackModules,
+    };
+  }
+
+  if (augmented.changedKeys.length === 0 && augmented.storeUpdates.length > 0) {
+    const inferredChangedKeys = await inferLikelyChangedKeys(api, augmented.storeUpdates[0]);
+    if (inferredChangedKeys.length > 0) {
+      augmented = {
+        ...augmented,
+        changedKeys: inferredChangedKeys,
+      };
+    }
+  }
+
+  if (augmented.errorMessages.length > 0) return augmented;
 
   const currentError = String(await api.errors(false, false));
-  if (!currentError || currentError === "no errors") return trace;
+  if (!currentError || currentError === "no errors") return augmented;
 
   return {
-    ...trace,
-    errorMessages: [currentError, ...trace.errorMessages],
+    ...augmented,
+    errorMessages: [currentError, ...augmented.errorMessages],
   };
+}
+
+function upgradeErrorCorrelation(
+  correlation: ReturnType<typeof correlateErrorWithHMR>,
+  fallbackModules: string[],
+  windowMs: number,
+) {
+  if (fallbackModules.length === 0) return correlation;
+  if (!correlation) return synthesizeErrorCorrelation(fallbackModules, windowMs);
+  if (correlation.matchingModules.length > 0) return correlation;
+  return synthesizeErrorCorrelation(fallbackModules, windowMs, correlation.relatedEvents);
+}
+
+function synthesizeErrorCorrelation(
+  modules: string[],
+  windowMs: number,
+  relatedEvents: Array<{ timestamp: number; type: "hmr-update" | "hmr-error"; payload: { path?: string; message?: string; updates?: Array<{ path?: string }> } }> = [],
+) {
+  if (modules.length === 0) return null;
+
+  return {
+    summary: `HMR update observed within ${windowMs}ms of the current error`,
+    detail: `Matching modules: ${modules.join(", ")}\nRecent events considered: ${modules.length}`,
+    confidence: "high" as const,
+    windowMs,
+    matchingModules: modules,
+    relatedEvents:
+      relatedEvents.length > 0
+        ? relatedEvents
+        : modules.map((module) => ({
+            timestamp: Date.now(),
+            type: "hmr-update" as const,
+            payload: {
+              path: module,
+              updates: [{ path: module }],
+            },
+          })),
+  };
+}
+
+async function inferLikelyChangedKeys(api: BrowserApi, storeName: string): Promise<string[]> {
+  try {
+    const raw = await api.evaluate(
+      `(() => {
+        const store = window.__PINIA__?._s?.get(${JSON.stringify(storeName)});
+        if (!store) return [];
+        return Object.keys(store).filter((key) => store[key] === undefined);
+      })()`,
+    );
+    const parsed = JSON.parse(String(raw));
+    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string" && value.length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
+function readTrackedHmrEvents(api: BrowserApi, windowMs: number) {
+  const reader = (api as Partial<Pick<BrowserApi, "getTrackedHmrEvents">>).getTrackedHmrEvents;
+  if (typeof reader !== "function") return [];
+
+  const events = reader(windowMs);
+  return Array.isArray(events) ? events : [];
 }
 
 async function flushCurrentPageEvents(api: BrowserApi, queue: ReturnType<BrowserApi["getEventQueue"]>) {

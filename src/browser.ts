@@ -56,6 +56,21 @@ export function getEventQueue(): EventQueue | null {
   return eventQueue;
 }
 
+export function getTrackedHmrEvents(windowMs = 5000): Array<{ timestamp: number; type: "hmr-update" | "hmr-error"; payload: { path?: string; message?: string; updates?: Array<{ path?: string }> } }> {
+  const cutoff = Date.now() - windowMs;
+  return session.hmrEvents
+    .filter((event) => event.timestamp >= cutoff)
+    .map((event) => ({
+      timestamp: event.timestamp,
+      type: event.type === "error" ? "hmr-error" : "hmr-update",
+      payload: {
+        path: event.path,
+        message: event.message,
+        updates: event.path ? [{ path: event.path }] : [],
+      },
+    }));
+}
+
 export function getCurrentPage(): Page | null {
   return getSessionPage(session);
 }
@@ -217,7 +232,7 @@ export async function goto(url: string) {
 
 export async function back() {
   const currentPage = await ensurePage();
-  await currentPage.goBack({ waitUntil: "domcontentloaded" });
+  await navigateAndRefreshContext(currentPage, () => currentPage.goBack({ waitUntil: "domcontentloaded" }));
 }
 
 export async function reload() {
@@ -423,8 +438,13 @@ async function navigateAndRefreshContext(
   refreshFramework = false,
 ): Promise<void> {
   await navigate();
+  clearRuntimeErrors();
   await injectEventCollector(currentPage);
   if (refreshFramework) {
     await detectFramework();
   }
+}
+
+function clearRuntimeErrors(): void {
+  session.runtimeErrors.length = 0;
 }

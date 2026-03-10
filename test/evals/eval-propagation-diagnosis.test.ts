@@ -138,6 +138,76 @@ describe("eval: propagation diagnosis", () => {
     expect(diagnosis.stdout).toContain("Status: warn");
   });
 
+  it("renders the demo-gif store -> render -> error output shape", async () => {
+    const session = `eval-propagation-demo-gif-${process.pid}-${Date.now()}`;
+    const daemon = await startEvalDaemon(session, (cmd: EvalCmd) => {
+      if (cmd.action === "correlate-renders") {
+        return {
+          ok: true,
+          data: [
+            "# Render Correlation",
+            "",
+            "Confidence: high",
+            "Recent source/store updates likely propagated through 1 render step(s).",
+            "",
+            "## Source Updates",
+            "- /src/stores/cart.ts",
+            "",
+            "## Store Updates",
+            "- cart",
+            "",
+            "## Changed Keys",
+            "- items",
+            "",
+            "## Render Path",
+            "- App > ShoppingCart > CartSummary",
+            "",
+            "## Store Hints",
+            "- cart",
+            "",
+            "## Errors",
+            "- Cannot read properties of undefined (reading 'reduce')",
+          ].join("\n"),
+        };
+      }
+
+      if (cmd.action === "diagnose-propagation") {
+        return {
+          ok: true,
+          data: [
+            "# Propagation Diagnosis",
+            "",
+            "Status: fail",
+            "Confidence: high",
+            "A plausible store -> render -> error propagation path was found.",
+            "Start with store cart, then inspect App > ShoppingCart > CartSummary as the nearest affected component. Changed keys: items.",
+            "Suggestion: Verify the recent store mutation first, then check whether the affected component or a dependent effect turns that state change into the visible failure.",
+          ].join("\n"),
+        };
+      }
+
+      return { ok: true, data: "ok" };
+    });
+    cleanups.push(daemon.cleanup);
+
+    const correlation = await runCli(["correlate", "renders", "--window", "5000"], {
+      VITE_BROWSER_SESSION: session,
+    });
+    expect(correlation.code).toBe(0);
+    expect(correlation.stdout).toContain("/src/stores/cart.ts");
+    expect(correlation.stdout).toContain("cart");
+    expect(correlation.stdout).toContain("items");
+    expect(correlation.stdout).toContain("App > ShoppingCart > CartSummary");
+
+    const diagnosis = await runCli(["diagnose", "propagation", "--window", "5000"], {
+      VITE_BROWSER_SESSION: session,
+    });
+    expect(diagnosis.code).toBe(0);
+    expect(diagnosis.stdout).toContain("Status: fail");
+    expect(diagnosis.stdout).toContain("store -> render -> error");
+    expect(diagnosis.stdout).toContain("Changed keys: items.");
+  });
+
   it("keeps propagation diagnosis conservative when evidence is incomplete", async () => {
     const session = `eval-propagation-inconclusive-${process.pid}-${Date.now()}`;
     const daemon = await startEvalDaemon(session, (cmd: EvalCmd) => {

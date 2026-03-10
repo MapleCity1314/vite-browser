@@ -70,6 +70,19 @@ Useful when a Vite app breaks after an update and you want a terminal-readable c
 
 Repo: https://github.com/MapleCity1314/vite-browser
 
+## X / Twitter Post For v0.3.3
+
+Shipped `vite-browser` `v0.3.3`.
+
+This patch hardens the live Vite/Vue/Pinia debugging loop:
+- error correlation stays high-confidence even when the current stack lands in a downstream component
+- sparse HMR evidence is more likely to recover the right source module
+- stale runtime errors clear after recovery instead of sticking around forever
+
+Useful when a hot-updated store breaks the UI and you need a terminal-readable `source -> render -> error` story you can trust.
+
+Repo: https://github.com/MapleCity1314/vite-browser
+
 ## Forum Post
 
 I built `vite-browser`, a runtime diagnostics CLI for Vite applications.
@@ -130,6 +143,16 @@ Use these points consistently:
 - `v0.3.2` is a stabilization patch on top of the `v0.3` propagation release line.
 - It improves how live Vue/Pinia repros produce actionable propagation output.
 - It is the right release to show `correlate renders` and `diagnose propagation` against real store-driven failures.
+- It keeps the `v0.3` positioning: propagation output is still high-confidence narrowing, not strict causality.
+
+## Positioning Notes For v0.3.3
+
+Use these points consistently:
+
+- `v0.3.3` is a stabilization patch on top of the `v0.3` propagation release line.
+- It improves how sparse HMR/runtime evidence is stitched back into a usable source-module diagnosis.
+- It is the right release to show `correlate errors`, `correlate renders`, and `diagnose propagation` against real store-driven failures.
+- It also tightens trust in the current page lifecycle by clearing stale runtime errors after recovery.
 - It keeps the `v0.3` positioning: propagation output is still high-confidence narrowing, not strict causality.
 
 ## Suggested GitHub Topics

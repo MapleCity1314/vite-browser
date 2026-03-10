@@ -21,6 +21,7 @@ function createBrowserMock() {
     svelteTree: vi.fn(async () => "svelte"),
     viteRestart: vi.fn(async () => "restarted"),
     viteHMRTrace: vi.fn(async () => "hmr"),
+    getTrackedHmrEvents: vi.fn(() => []),
     viteRuntimeStatus: vi.fn(async () => "runtime"),
     viteModuleGraph: vi.fn(async () => "graph"),
     errors: vi.fn(async () => "errors"),
@@ -97,6 +98,26 @@ describe("daemon core runner", () => {
     expect(result).toMatchObject({ ok: true });
     expect(String(result.data)).toContain("Confidence: high");
     expect(String(result.data)).toContain("/src/App.tsx");
+  });
+
+  it("uses tracked HMR fallback when the event queue has no HMR updates", async () => {
+    const api = createBrowserMock();
+    api.errors = vi.fn(async () => "TypeError at http://localhost:5173/src/components/CartSummary.vue:3:1");
+    api.viteHMRTrace = vi.fn(async () => "# HMR Trace\n- /src/stores/cart.ts");
+    api.getTrackedHmrEvents = vi.fn(() => [
+      {
+        timestamp: Date.now(),
+        type: "hmr-update",
+        payload: { path: "/src/stores/cart.ts", updates: [{ path: "/src/stores/cart.ts" }] },
+      },
+    ]);
+    const run = createRunner(api);
+
+    const result = await run({ action: "correlate-errors", windowMs: 5000 });
+
+    expect(result).toMatchObject({ ok: true });
+    expect(String(result.data)).toContain("Confidence: high");
+    expect(String(result.data)).toContain("/src/stores/cart.ts");
   });
 
   it("diagnoses hmr failures from runtime, errors, and trace data", async () => {
@@ -276,6 +297,44 @@ describe("daemon core runner", () => {
     expect(String(correlation.data)).toContain("## Errors");
     expect(String(correlation.data)).toContain("TypeError: boom");
     expect(String(diagnosis.data)).toContain("store -> render -> error");
+  });
+
+  it("infers changed keys from the live store when event payloads omit them", async () => {
+    const api = createBrowserMock();
+    const queue = new EventQueue();
+    queue.push({
+      timestamp: Date.now() - 20,
+      type: "store-update",
+      payload: { store: "cart", mutationType: "direct", events: 0, changedKeys: [] },
+    } as any);
+    queue.push({
+      timestamp: Date.now() - 10,
+      type: "render",
+      payload: {
+        component: "CartSummary",
+        path: "App > ShoppingCart > CartSummary",
+        framework: "vue",
+        reason: "store-update",
+        mutationCount: 0,
+        storeHints: ["cart"],
+        changedKeys: [],
+      },
+    } as any);
+    queue.push({
+      timestamp: Date.now(),
+      type: "error",
+      payload: { message: "TypeError: boom" },
+    } as any);
+    api.getEventQueue = vi.fn(() => queue);
+    api.evaluate = vi.fn(async () => '["items"]');
+    const run = createRunner(api);
+
+    const correlation = await run({ action: "correlate-renders", windowMs: 5000 });
+    const diagnosis = await run({ action: "diagnose-propagation", windowMs: 5000 });
+
+    expect(String(correlation.data)).toContain("## Changed Keys");
+    expect(String(correlation.data)).toContain("items");
+    expect(String(diagnosis.data)).toContain("Changed keys: items.");
   });
 
   it("returns a no-correlation report when there are no current errors", async () => {

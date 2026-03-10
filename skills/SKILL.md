@@ -47,7 +47,7 @@ vite-browser errors --mapped --inline-source
 vite-browser logs
 ```
 
-Treat `errors --mapped --inline-source` as the primary error read when reproducing live runtime failures in `v0.3.2+`. It can surface browser-side runtime errors even when the Vite overlay is absent, and its output now pairs more reliably with propagation diagnosis in live Vue repros.
+Treat `errors --mapped --inline-source` as the primary error read when reproducing live runtime failures in `v0.3.3+`. It can surface browser-side runtime errors even when the Vite overlay is absent, and its output now pairs more reliably with propagation diagnosis in live Vue repros.
 
 Then continue with the selected specialized skill and stop using the router skill.
 

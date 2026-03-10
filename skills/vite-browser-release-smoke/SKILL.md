@@ -33,7 +33,7 @@ vite-browser vite runtime
 vite-browser screenshot
 ```
 
-For `v0.3.2+`, use `errors --mapped --inline-source` in smoke checks even when no Vite overlay is visible. Browser-side runtime failures should now be treated as release blockers if they surface there or in `logs`, and live Vue propagation regressions should be checked with `diagnose propagation` when store-driven UI failures are in scope.
+For `v0.3.3+`, use `errors --mapped --inline-source` in smoke checks even when no Vite overlay is visible. Browser-side runtime failures should now be treated as release blockers if they surface there or in `logs`, and live Vue propagation regressions should be checked with both `correlate renders` and `diagnose propagation` when store-driven UI failures are in scope.
 
 If Vue app:
 
@@ -51,12 +51,24 @@ vite-browser vite hmr clear
 vite-browser errors --mapped --inline-source
 vite-browser correlate errors --mapped --window 5000
 ## wait briefly if the repro depends on a UI interaction
+vite-browser correlate renders --window 5000
+vite-browser diagnose propagation --window 5000
 vite-browser diagnose hmr --limit 50
 vite-browser vite hmr trace --limit 20
 vite-browser vite module-graph clear
 vite-browser vite module-graph
 vite-browser vite module-graph trace --limit 50
 ```
+
+Recovery sanity for `v0.3.3+`:
+
+```bash
+# recover the app after one reproduced failure
+vite-browser reload
+vite-browser errors
+```
+
+The recovered state should return `no errors` when the page is healthy again. If stale runtime failures persist after recovery, treat that as a release blocker.
 
 ## Report format
 

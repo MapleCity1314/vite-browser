@@ -102,7 +102,11 @@ Use this rule:
 - Ship `v0.3.0-beta` if the required functional surface and required evals/e2e are green, but full release validation is still incomplete.
 - Ship `v0.3.0` only after the required validation commands have been run cleanly on the release candidate state.
 
-Current branch state:
+Current release-candidate state:
 
-- The release gate checks above are green on the current `feat/v0.3-propagation-foundation` branch.
-- From a release-gate perspective, this branch is eligible for `v0.3.0` packaging once versioning, release notes, and publish steps are prepared.
+- The `v0.3.3` release-candidate checks above are green on the current working tree.
+- `pnpm build`: passed
+- `pnpm test`: passed
+- `pnpm test:evals:e2e`: passed in the current local environment
+- The tracked in-repo demo covers the baseline e2e path.
+- An optional local-only `demo-gif` repro is also used to stress the stronger `source -> render -> error` path and browser-session recovery, but it is not part of the repository release payload.

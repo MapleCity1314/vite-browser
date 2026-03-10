@@ -81,6 +81,41 @@ describe("eval: correlation and diagnosis", () => {
     expect(res.stdout).toContain("## repeated-full-reload");
   });
 
+  it("renders high-confidence fallback correlation for the demo-gif store update", async () => {
+    const session = `eval-correlation-demo-gif-${process.pid}-${Date.now()}`;
+    const daemon = await startEvalDaemon(session, (cmd: EvalCmd) => {
+      if (cmd.action !== "correlate-errors") return { ok: true, data: "ok" };
+      return {
+        ok: true,
+        data: [
+          "# Error Correlation",
+          "",
+          "## Current Error",
+          "Cannot read properties of undefined (reading 'reduce')",
+          "",
+          "## Correlation",
+          "Confidence: high",
+          "HMR update observed within 5000ms of the current error",
+          "Matching modules: /src/stores/cart.ts",
+          "Recent events considered: 1",
+          "",
+          "## Related Events",
+          "- hmr-update: /src/stores/cart.ts",
+        ].join("\n"),
+      };
+    });
+    cleanups.push(daemon.cleanup);
+
+    const res = await runCli(["correlate", "errors", "--mapped", "--window", "5000"], {
+      VITE_BROWSER_SESSION: session,
+    });
+
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("Confidence: high");
+    expect(res.stdout).toContain("/src/stores/cart.ts");
+    expect(res.stdout).not.toContain("Confidence: medium");
+  });
+
   it("renders websocket diagnosis from disconnect evidence without overclaiming unknown runtime state", async () => {
     const session = `eval-diagnose-ws-${process.pid}-${Date.now()}`;
     const daemon = await startEvalDaemon(session, (cmd: EvalCmd) => {

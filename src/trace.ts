@@ -63,11 +63,12 @@ export function correlateRenderPropagation(events: VBEvent[]): PropagationTrace 
         ? storeHints
         : [];
   const changedKeys = uniqueStrings(
-    storeEvents.length > 0
-      ? storeEvents.flatMap((event) => getChangedKeys(event.payload))
-      : renderEvents
-          .filter((event) => getRenderReason(event.payload) === "store-update")
-          .flatMap((event) => getRenderChangedKeys(event.payload)),
+    [
+      ...storeEvents.flatMap((event) => getChangedKeys(event.payload)),
+      ...renderEvents
+        .filter((event) => getRenderReason(event.payload) === "store-update")
+        .flatMap((event) => getRenderChangedKeys(event.payload)),
+    ],
   );
   const renderComponents = uniqueStrings(renderEvents.map((event) => getRenderLabel(event.payload)).filter(Boolean));
   const networkUrls = uniqueStrings(

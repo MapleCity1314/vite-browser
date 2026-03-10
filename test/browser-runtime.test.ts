@@ -294,4 +294,21 @@ describe("browser runtime flows", () => {
     mockState.evaluateResults = [null];
     expect(await browser.errors(true, true)).toContain("# Mapped Stack");
   });
+
+  it("clears stale runtime errors after a successful navigation refresh", async () => {
+    mockState.evaluateResults = [undefined, "vue@3.5.0"];
+    await browser.open("http://localhost:5173/app");
+
+    const pageErrorHandler = mockState.handlers.pageerror as (error: Error) => void;
+    pageErrorHandler(new Error("TypeError: stale boom"));
+
+    mockState.evaluateResults = [null];
+    expect(await browser.errors()).toContain("TypeError: stale boom");
+
+    mockState.evaluateResults = [undefined];
+    await browser.reload();
+
+    mockState.evaluateResults = [null];
+    expect(await browser.errors()).toBe("no errors");
+  });
 });

@@ -1,14 +1,16 @@
 import type { RenderEventPayload, VBEvent } from "./event-queue.js";
 
 export function initBrowserEventCollector(): void {
-  if ((window as any).__vb_events) return;
-
-  (window as any).__vb_events = [];
-  (window as any).__vb_push = (event: VBEvent) => {
-    const q = (window as any).__vb_events as VBEvent[];
-    q.push(event);
-    if (q.length > 1000) q.shift();
-  };
+  if (!(window as any).__vb_events) {
+    (window as any).__vb_events = [];
+  }
+  if (!(window as any).__vb_push) {
+    (window as any).__vb_push = (event: VBEvent) => {
+      const q = (window as any).__vb_events as VBEvent[];
+      q.push(event);
+      if (q.length > 1000) q.shift();
+    };
+  }
 
   const inferFramework = (): RenderEventPayload["framework"] => {
     if ((window as any).__VUE__ || (window as any).__VUE_DEVTOOLS_GLOBAL_HOOK__) return "vue";
@@ -128,14 +130,18 @@ export function initBrowserEventCollector(): void {
   };
 
   const attachPiniaSubscriptions = () => {
-    if ((window as any).__vb_pinia_attached) return;
     const hook = (window as any).__VUE_DEVTOOLS_GLOBAL_HOOK__;
     const app = Array.isArray(hook?.apps) ? hook.apps[0] : null;
     const pinia = (window as any).__PINIA__ || (window as any).pinia || app?.config?.globalProperties?.$pinia;
     const registry = pinia?._s;
     if (!(registry instanceof Map) || registry.size === 0) return;
 
-    const attached = ((window as any).__vb_pinia_attached = new Set<string>());
+    const attached =
+      (window as any).__vb_pinia_attached ||
+      ((window as any).__vb_pinia_attached = new Set<string>());
+    const actionAttached =
+      (window as any).__vb_pinia_action_attached ||
+      ((window as any).__vb_pinia_action_attached = new Set<string>());
 
     registry.forEach((store: any, storeId: string) => {
       if (!store || typeof store.$subscribe !== "function" || attached.has(String(storeId))) return;
@@ -173,12 +179,37 @@ export function initBrowserEventCollector(): void {
           } satisfies VBEvent);
           scheduleRender("store-update", { changedKeys });
         },
-        { detached: true } as any,
+        // Flush synchronously so the store event is recorded before a render-time failure
+        // can short-circuit the rest of Vue's update cycle.
+        { detached: true, flush: "sync" } as any,
       );
+
+      if (typeof store.$onAction === "function" && !actionAttached.has(String(storeId))) {
+        actionAttached.add(String(storeId));
+        store.$onAction(
+          ({ name, after }: any) => {
+            after(() => {
+              (window as any).__vb_push({
+                timestamp: Date.now(),
+                type: "store-update",
+                payload: {
+                  store: String(storeId),
+                  mutationType: typeof name === "string" && name.length > 0 ? `action:${name}` : "action",
+                  events: 0,
+                  changedKeys: [],
+                },
+              } satisfies VBEvent);
+              scheduleRender("store-update");
+            });
+          },
+          true,
+        );
+      }
     });
   };
 
   function attachViteListener(): boolean {
+    if ((window as any).__vb_vite_listener_attached) return true;
     const hot = (window as any).__vite_hot;
     if (hot?.ws) {
       hot.ws.addEventListener("message", (e: MessageEvent) => {
@@ -194,6 +225,7 @@ export function initBrowserEventCollector(): void {
           }
         } catch {}
       });
+      (window as any).__vb_vite_listener_attached = true;
       return true;
     }
     return false;
@@ -209,23 +241,29 @@ export function initBrowserEventCollector(): void {
     }, 100);
   }
 
-  const origOnError = window.onerror;
-  window.onerror = (msg, src, line, col, err) => {
-    (window as any).__vb_push({
-      timestamp: Date.now(),
-      type: "error",
-      payload: { message: String(msg), source: src, line, col, stack: err?.stack },
-    } satisfies VBEvent);
-    return origOnError ? origOnError(msg, src, line, col, err) : false;
-  };
+  if (!(window as any).__vb_onerror_attached) {
+    const origOnError = window.onerror;
+    window.onerror = (msg, src, line, col, err) => {
+      (window as any).__vb_push({
+        timestamp: Date.now(),
+        type: "error",
+        payload: { message: String(msg), source: src, line, col, stack: err?.stack },
+      } satisfies VBEvent);
+      return origOnError ? origOnError(msg, src, line, col, err) : false;
+    };
+    (window as any).__vb_onerror_attached = true;
+  }
 
-  window.addEventListener("unhandledrejection", (e) => {
-    (window as any).__vb_push({
-      timestamp: Date.now(),
-      type: "error",
-      payload: { message: e.reason?.message, stack: e.reason?.stack },
-    } satisfies VBEvent);
-  });
+  if (!(window as any).__vb_unhandledrejection_attached) {
+    window.addEventListener("unhandledrejection", (e) => {
+      (window as any).__vb_push({
+        timestamp: Date.now(),
+        type: "error",
+        payload: { message: e.reason?.message, stack: e.reason?.stack },
+      } satisfies VBEvent);
+    });
+    (window as any).__vb_unhandledrejection_attached = true;
+  }
 
   const observeDom = () => {
     const root = document.body || document.documentElement;
@@ -263,7 +301,9 @@ export function initBrowserEventCollector(): void {
   observeDom();
   patchHistory();
   attachPiniaSubscriptions();
-  window.setInterval(attachPiniaSubscriptions, 1000);
+  if (!(window as any).__vb_pinia_retry_timer) {
+    (window as any).__vb_pinia_retry_timer = window.setInterval(attachPiniaSubscriptions, 250);
+  }
   scheduleRender("initial-load");
 }
 

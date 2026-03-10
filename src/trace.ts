@@ -6,8 +6,10 @@ import {
   getHmrEvents,
   getNetworkEvents,
   getNetworkUrl,
+  getRenderChangedKeys,
   getRenderEvents,
   getRenderLabel,
+  getRenderReason,
   getStoreHints,
   getStoreName,
   getStoreUpdateEvents,
@@ -40,16 +42,34 @@ export function correlateRenderPropagation(events: VBEvent[]): PropagationTrace 
   const errorEvents = getErrorEvents(recent);
 
   const sourceModules = uniqueStrings(hmrEvents.flatMap(extractModulesFromHmrEvent));
-  const storeUpdates = uniqueStrings(
+  const explicitStoreUpdates = uniqueStrings(
     storeEvents.map((event) => getStoreName(event.payload)).filter((value): value is string => value != null),
   );
-  const changedKeys = uniqueStrings(
-    storeEvents.flatMap((event) => getChangedKeys(event.payload)),
-  );
-  const renderComponents = uniqueStrings(renderEvents.map((event) => getRenderLabel(event.payload)).filter(Boolean));
   const storeHints = uniqueStrings(
     renderEvents.flatMap((event) => getStoreHints(event.payload)),
   );
+  const inferredStoreUpdates =
+    explicitStoreUpdates.length > 0
+      ? explicitStoreUpdates
+      : uniqueStrings(
+          renderEvents
+            .filter((event) => getRenderReason(event.payload) === "store-update")
+            .flatMap((event) => getStoreHints(event.payload)),
+        );
+  const storeUpdates =
+    inferredStoreUpdates.length > 0
+      ? inferredStoreUpdates
+      : storeHints.length === 1
+        ? storeHints
+        : [];
+  const changedKeys = uniqueStrings(
+    storeEvents.length > 0
+      ? storeEvents.flatMap((event) => getChangedKeys(event.payload))
+      : renderEvents
+          .filter((event) => getRenderReason(event.payload) === "store-update")
+          .flatMap((event) => getRenderChangedKeys(event.payload)),
+  );
+  const renderComponents = uniqueStrings(renderEvents.map((event) => getRenderLabel(event.payload)).filter(Boolean));
   const networkUrls = uniqueStrings(
     networkEvents.map((event) => getNetworkUrl(event.payload)).filter((value): value is string => value != null),
   );

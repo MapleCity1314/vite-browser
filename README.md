@@ -271,12 +271,13 @@ vite-browser eval <script>
 
 ## Current Boundaries
 
-`v0.3.1` is strong at:
+`v0.3.2` is strong at:
 - surfacing runtime state as structured shell output
 - linking current errors to recent HMR and module activity
 - detecting common HMR failure patterns with confidence levels
 - narrowing likely store/module -> render paths in Vue-first flows
 - capturing browser-side runtime errors even when the Vite overlay is absent
+- turning sparse live Vue/Pinia repro signals into actionable `store -> render -> error` guidance more reliably
 
 `correlate renders` and `diagnose propagation` are **high-confidence propagation clues**, not strict causal proof. They do not reliably trace deep chains like `store -> component A -> component B -> error` across arbitrary graphs, and intentionally fall back to conservative output when evidence is incomplete.
 

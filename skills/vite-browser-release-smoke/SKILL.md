@@ -33,7 +33,7 @@ vite-browser vite runtime
 vite-browser screenshot
 ```
 
-For `v0.3.1+`, use `errors --mapped --inline-source` in smoke checks even when no Vite overlay is visible. Browser-side runtime failures should now be treated as release blockers if they surface there or in `logs`.
+For `v0.3.2+`, use `errors --mapped --inline-source` in smoke checks even when no Vite overlay is visible. Browser-side runtime failures should now be treated as release blockers if they surface there or in `logs`, and live Vue propagation regressions should be checked with `diagnose propagation` when store-driven UI failures are in scope.
 
 If Vue app:
 

@@ -47,7 +47,7 @@ vite-browser errors --mapped --inline-source
 vite-browser logs
 ```
 
-In `v0.3.1+`, prefer `errors --mapped --inline-source` over plain `errors` during first-pass triage. It now captures browser-side runtime failures even when the Vite overlay is absent.
+In `v0.3.2+`, prefer `errors --mapped --inline-source` over plain `errors` during first-pass triage. It captures browser-side runtime failures even when the Vite overlay is absent and now aligns better with live propagation diagnosis for Vue store-driven failures.
 
 Then branch based on routing decision:
 

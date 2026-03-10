@@ -57,6 +57,19 @@ Useful when a Vite app breaks after an update and you need terminal-readable evi
 
 Repo: https://github.com/MapleCity1314/vite-browser
 
+## X / Twitter Post For v0.3.2
+
+Shipped `vite-browser` `v0.3.2`.
+
+This patch makes live Vue/Pinia propagation repros more usable:
+- store-driven failures are more likely to surface as `store -> render -> error`
+- sparse render/store hints now produce more actionable correlation output
+- current runtime failures feed propagation diagnosis more reliably
+
+Useful when a Vite app breaks after an update and you want a terminal-readable component path instead of guesswork.
+
+Repo: https://github.com/MapleCity1314/vite-browser
+
 ## Forum Post
 
 I built `vite-browser`, a runtime diagnostics CLI for Vite applications.
@@ -108,6 +121,15 @@ Use these points consistently:
 - `v0.3.1` is a stabilization patch on top of the `v0.3` propagation release line.
 - It improves runtime error capture when failures do not show up in the Vite overlay.
 - It is the right release to show `errors --mapped --inline-source` against live Vue runtime failures.
+- It keeps the `v0.3` positioning: propagation output is still high-confidence narrowing, not strict causality.
+
+## Positioning Notes For v0.3.2
+
+Use these points consistently:
+
+- `v0.3.2` is a stabilization patch on top of the `v0.3` propagation release line.
+- It improves how live Vue/Pinia repros produce actionable propagation output.
+- It is the right release to show `correlate renders` and `diagnose propagation` against real store-driven failures.
 - It keeps the `v0.3` positioning: propagation output is still high-confidence narrowing, not strict causality.
 
 ## Suggested GitHub Topics

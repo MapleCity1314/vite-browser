@@ -75,6 +75,7 @@ async function injectEventCollector(currentPage: Page): Promise<void> {
  * Flush browser events into daemon event queue
  */
 export async function flushBrowserEvents(currentPage: Page, queue: EventQueue): Promise<void> {
+  await currentPage.evaluate(initBrowserEventCollector);
   const raw = await currentPage.evaluate(readBrowserEvents);
   for (const e of raw) {
     queue.push(e);
@@ -371,6 +372,7 @@ export async function screenshot(): Promise<string> {
 
 export async function evaluate(script: string): Promise<string> {
   const currentPage = requireCurrentPage();
+  await currentPage.evaluate(initBrowserEventCollector);
   const result = await currentPage.evaluate(script);
   return JSON.stringify(result, null, 2);
 }

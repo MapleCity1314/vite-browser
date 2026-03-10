@@ -159,6 +159,125 @@ describe("daemon core runner", () => {
     expect(String(diagnosis.data)).toContain("Changed keys: filters.");
   });
 
+  it("retries propagation reads when render events land shortly after the triggering command", async () => {
+    const api = createBrowserMock();
+    const queue = new EventQueue();
+    const currentPage = { isClosed: () => false, waitForTimeout: vi.fn(async () => undefined) };
+    let flushes = 0;
+
+    api.getEventQueue = vi.fn(() => queue);
+    api.getCurrentPage = vi.fn(() => currentPage as any);
+    api.flushBrowserEvents = vi.fn(async () => {
+      flushes++;
+      if (flushes !== 2) return;
+      queue.push({
+        timestamp: Date.now() - 20,
+        type: "store-update",
+        payload: { store: "cart", mutationType: "direct", events: 0, changedKeys: ["items"] },
+      } as any);
+      queue.push({
+        timestamp: Date.now() - 10,
+        type: "render",
+        payload: {
+          component: "ShoppingCart",
+          path: "App > RouterView > ShoppingCart",
+          framework: "vue",
+          reason: "store-update",
+          mutationCount: 0,
+          storeHints: ["cart"],
+          changedKeys: ["items"],
+        },
+      } as any);
+      queue.push({
+        timestamp: Date.now(),
+        type: "error",
+        payload: { message: "TypeError: boom" },
+      } as any);
+    });
+    const run = createRunner(api);
+
+    const correlation = await run({ action: "correlate-renders", windowMs: 5000 });
+    const diagnosis = await run({ action: "diagnose-propagation", windowMs: 5000 });
+
+    expect(currentPage.waitForTimeout).toHaveBeenCalled();
+    expect(flushes).toBeGreaterThanOrEqual(3);
+    expect(String(correlation.data)).toContain("## Store Updates");
+    expect(String(correlation.data)).toContain("ShoppingCart");
+    expect(String(diagnosis.data)).toContain("store -> render -> error");
+  });
+
+  it("flushes delayed propagation events after eval commands", async () => {
+    const api = createBrowserMock();
+    const queue = new EventQueue();
+    const currentPage = { isClosed: () => false, waitForTimeout: vi.fn(async () => undefined) };
+    let flushes = 0;
+
+    api.getEventQueue = vi.fn(() => queue);
+    api.getCurrentPage = vi.fn(() => currentPage as any);
+    api.evaluate = vi.fn(async () => '{"ok":true}');
+    api.flushBrowserEvents = vi.fn(async () => {
+      flushes++;
+      if (flushes !== 2) return;
+      queue.push({
+        timestamp: Date.now() - 15,
+        type: "store-update",
+        payload: { store: "cart", mutationType: "direct", events: 0, changedKeys: ["items"] },
+      } as any);
+      queue.push({
+        timestamp: Date.now() - 10,
+        type: "render",
+        payload: {
+          component: "ShoppingCart",
+          path: "App > RouterView > ShoppingCart",
+          framework: "vue",
+          reason: "store-update",
+          mutationCount: 0,
+          storeHints: ["cart"],
+          changedKeys: ["items"],
+        },
+      } as any);
+    });
+    const run = createRunner(api);
+
+    const evalResult = await run({ action: "eval", script: "window.location.href" });
+    const correlation = await run({ action: "correlate-renders", windowMs: 5000 });
+
+    expect(evalResult).toMatchObject({ ok: true, data: '{"ok":true}' });
+    expect(currentPage.waitForTimeout).toHaveBeenCalled();
+    expect(flushes).toBeGreaterThanOrEqual(3);
+    expect(String(correlation.data)).toContain("## Store Updates");
+    expect(String(correlation.data)).toContain("ShoppingCart");
+  });
+
+  it("uses the current runtime error as propagation evidence when the queue lacks error events", async () => {
+    const api = createBrowserMock();
+    const queue = new EventQueue();
+    queue.push({
+      timestamp: Date.now() - 10,
+      type: "render",
+      payload: {
+        component: "ShoppingCart",
+        path: "App > RouterView > ShoppingCart",
+        framework: "vue",
+        reason: "initial-load",
+        mutationCount: 0,
+        storeHints: ["cart"],
+        changedKeys: [],
+      },
+    } as any);
+    api.getEventQueue = vi.fn(() => queue);
+    api.errors = vi.fn(async () => "TypeError: boom");
+    const run = createRunner(api);
+
+    const correlation = await run({ action: "correlate-renders", windowMs: 5000 });
+    const diagnosis = await run({ action: "diagnose-propagation", windowMs: 5000 });
+
+    expect(String(correlation.data)).toContain("## Store Updates");
+    expect(String(correlation.data)).toContain("## Errors");
+    expect(String(correlation.data)).toContain("TypeError: boom");
+    expect(String(diagnosis.data)).toContain("store -> render -> error");
+  });
+
   it("returns a no-correlation report when there are no current errors", async () => {
     const api = createBrowserMock();
     api.errors = vi.fn(async () => "no errors");

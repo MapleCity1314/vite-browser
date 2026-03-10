@@ -41,4 +41,61 @@ describe("trace", () => {
   it("formats an empty render correlation state", () => {
     expect(formatPropagationTraceReport(null)).toContain("No render/update events available");
   });
+
+  it("infers store propagation from render metadata when store-update events are missing", () => {
+    const events: VBEvent[] = [
+      {
+        timestamp: 1100,
+        type: "render",
+        payload: {
+          component: "ShoppingCart",
+          path: "App > RouterView > ShoppingCart",
+          framework: "vue",
+          reason: "store-update",
+          mutationCount: 0,
+          storeHints: ["cart"],
+          changedKeys: ["items"],
+        } as any,
+      },
+      { timestamp: 1300, type: "error", payload: { message: "TypeError: boom" } },
+    ];
+
+    const trace = correlateRenderPropagation(events);
+
+    expect(trace).toMatchObject({
+      confidence: "high",
+      storeUpdates: ["cart"],
+      changedKeys: ["items"],
+      renderComponents: ["App > RouterView > ShoppingCart"],
+      storeHints: ["cart"],
+      errorMessages: ["TypeError: boom"],
+    });
+  });
+
+  it("falls back to a single store hint when render metadata is otherwise incomplete", () => {
+    const events: VBEvent[] = [
+      {
+        timestamp: 1100,
+        type: "render",
+        payload: {
+          component: "ShoppingCart",
+          path: "App > RouterView > ShoppingCart",
+          framework: "vue",
+          reason: "initial-load",
+          mutationCount: 0,
+          storeHints: ["cart"],
+          changedKeys: [],
+        } as any,
+      },
+    ];
+
+    const trace = correlateRenderPropagation(events);
+
+    expect(trace).toMatchObject({
+      confidence: "medium",
+      storeUpdates: ["cart"],
+      renderComponents: ["App > RouterView > ShoppingCart"],
+      storeHints: ["cart"],
+    });
+  });
 });

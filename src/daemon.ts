@@ -1,6 +1,7 @@
 import { createServer } from "node:net";
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import type { Socket } from "node:net";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import * as browser from "./browser.js";
 import { correlateErrorWithHMR, formatErrorCorrelationReport } from "./correlate.js";
@@ -8,6 +9,7 @@ import { diagnoseHMR, formatDiagnosisReport } from "./diagnose.js";
 import { diagnosePropagation, formatPropagationDiagnosisReport } from "./diagnose-propagation.js";
 import { socketDir, socketPath, pidFile } from "./paths.js";
 import { correlateRenderPropagation, formatPropagationTraceReport } from "./trace.js";
+import type { PropagationTrace } from "./trace.js";
 import { EventQueue } from "./event-queue.js";
 import * as networkLog from "./network.js";
 
@@ -38,18 +40,8 @@ export function cleanError(err: unknown) {
 
 export function createRunner(api: BrowserApi = browser) {
   return async function run(cmd: Cmd) {
-    // Flush browser events to daemon queue before processing command
     const queue = api.getEventQueue();
-    if (queue) {
-      try {
-        const currentPage = api.getCurrentPage();
-        if (currentPage) {
-          await api.flushBrowserEvents(currentPage, queue);
-        }
-      } catch {
-        // Ignore flush errors (page might not be open yet)
-      }
-    }
+    await flushCurrentPageEvents(api, queue);
 
     // Browser control
     if (cmd.action === "open") {
@@ -142,8 +134,8 @@ export function createRunner(api: BrowserApi = browser) {
       return { ok: true, data };
     }
     if (cmd.action === "correlate-renders") {
-      const events = queue ? queue.window(cmd.windowMs ?? 5000) : [];
-      const data = formatPropagationTraceReport(correlateRenderPropagation(events));
+      const events = await getSettledEventWindow(api, queue, cmd.windowMs ?? 5000);
+      const data = formatPropagationTraceReport(await buildPropagationTrace(api, events));
       return { ok: true, data };
     }
     if (cmd.action === "diagnose-hmr") {
@@ -159,8 +151,8 @@ export function createRunner(api: BrowserApi = browser) {
       return { ok: true, data };
     }
     if (cmd.action === "diagnose-propagation") {
-      const events = queue ? queue.window(cmd.windowMs ?? 5000) : [];
-      const data = formatPropagationDiagnosisReport(diagnosePropagation(correlateRenderPropagation(events)));
+      const events = await getSettledEventWindow(api, queue, cmd.windowMs ?? 5000);
+      const data = formatPropagationDiagnosisReport(diagnosePropagation(await buildPropagationTrace(api, events)));
       return { ok: true, data };
     }
     if (cmd.action === "logs") {
@@ -175,6 +167,10 @@ export function createRunner(api: BrowserApi = browser) {
     }
     if (cmd.action === "eval") {
       const data = await api.evaluate(cmd.script!);
+      await settleCurrentPage(api, 120);
+      await flushCurrentPageEvents(api, queue);
+      await settleCurrentPage(api, 180);
+      await flushCurrentPageEvents(api, queue);
       return { ok: true, data };
     }
     if (cmd.action === "network") {
@@ -184,6 +180,66 @@ export function createRunner(api: BrowserApi = browser) {
 
     return { ok: false, error: `unknown action: ${cmd.action}` };
   };
+}
+
+async function buildPropagationTrace(api: BrowserApi, events: Array<{ timestamp: number; type: string; payload: any }>): Promise<PropagationTrace | null> {
+  const trace = correlateRenderPropagation(events as any);
+  if (!trace) return null;
+  if (trace.errorMessages.length > 0) return trace;
+
+  const currentError = String(await api.errors(false, false));
+  if (!currentError || currentError === "no errors") return trace;
+
+  return {
+    ...trace,
+    errorMessages: [currentError, ...trace.errorMessages],
+  };
+}
+
+async function flushCurrentPageEvents(api: BrowserApi, queue: ReturnType<BrowserApi["getEventQueue"]>) {
+  if (!queue) return;
+  try {
+    const currentPage = api.getCurrentPage();
+    if (currentPage) {
+      await api.flushBrowserEvents(currentPage, queue);
+    }
+  } catch {
+    // Ignore flush errors (page might not be open yet)
+  }
+}
+
+async function getSettledEventWindow(api: BrowserApi, queue: ReturnType<BrowserApi["getEventQueue"]>, windowMs: number) {
+  if (!queue) return [];
+
+  let events = queue.window(windowMs);
+  if (hasPropagationSignals(events)) return events;
+
+  for (const delayMs of [120, 300]) {
+    await settleCurrentPage(api, delayMs);
+    await flushCurrentPageEvents(api, queue);
+    events = queue.window(windowMs);
+    if (hasPropagationSignals(events)) return events;
+  }
+
+  return events;
+}
+
+function hasPropagationSignals(events: Array<{ type: string }>) {
+  return events.some((event) => event.type === "render" || event.type === "store-update");
+}
+
+async function settleCurrentPage(api: BrowserApi, delayMs: number) {
+  const currentPage = api.getCurrentPage();
+  if (!currentPage) {
+    await sleep(delayMs);
+    return;
+  }
+
+  try {
+    await currentPage.waitForTimeout(delayMs);
+  } catch {
+    await sleep(delayMs);
+  }
 }
 
 export async function dispatchLine(

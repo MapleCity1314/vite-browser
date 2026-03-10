@@ -179,7 +179,7 @@ describe("browser runtime flows", () => {
 
   it("flushes queued browser events into the daemon queue", async () => {
     const queue = new EventQueue();
-    mockState.evaluateResults = [[
+    mockState.evaluateResults = [undefined, [
       { timestamp: 1, type: "hmr-update", payload: { path: "/src/App.tsx" } },
       {
         timestamp: 2,

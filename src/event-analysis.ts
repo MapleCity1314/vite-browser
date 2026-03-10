@@ -84,6 +84,14 @@ export function getStoreHints(payload: RenderEventPayload): string[] {
   return payload.storeHints.filter((value) => value.length > 0);
 }
 
+export function getRenderReason(payload: RenderEventPayload): string | null {
+  return typeof payload.reason === "string" && payload.reason.length > 0 ? payload.reason : null;
+}
+
+export function getRenderChangedKeys(payload: RenderEventPayload): string[] {
+  return payload.changedKeys.filter((value) => value.length > 0);
+}
+
 export function getNetworkUrl(payload: NetworkEventPayload): string | null {
   return payload.url.length > 0 ? payload.url : null;
 }

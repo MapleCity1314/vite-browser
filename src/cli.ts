@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
+import { realpathSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { send, type Response } from "./client.js";
 
 export type CliIo = {
@@ -9,6 +12,12 @@ export type CliIo = {
   stderr: (text: string) => void;
   exit: (code: number) => never;
 };
+
+class CliExit extends Error {
+  constructor(readonly code: number) {
+    super(`CLI_EXIT:${code}`);
+  }
+}
 
 export function normalizeUrl(value: string): string {
   if (value.includes("://")) return value;
@@ -294,17 +303,35 @@ OPTIONS
 }
 
 function isEntrypoint(argv1: string | undefined): boolean {
-  return Boolean(argv1 && import.meta.url.endsWith(argv1.replaceAll("\\", "/")));
+  if (!argv1) return false;
+
+  try {
+    const current = realpathSync(fileURLToPath(import.meta.url));
+    const target = realpathSync(resolve(argv1));
+    return current === target;
+  } catch {
+    return Boolean(argv1 && import.meta.url.endsWith(argv1.replaceAll("\\", "/")));
+  }
 }
 
 async function main() {
-  await runCli(process.argv, {
-    send,
-    readFile: readFileSync,
-    stdout: (text) => console.log(text),
-    stderr: (text) => console.error(text),
-    exit: (code) => process.exit(code),
-  });
+  try {
+    await runCli(process.argv, {
+      send,
+      readFile: readFileSync,
+      stdout: (text) => process.stdout.write(`${text}\n`),
+      stderr: (text) => process.stderr.write(`${text}\n`),
+      exit: ((code: number) => {
+        throw new CliExit(code);
+      }) as never,
+    });
+  } catch (error) {
+    if (error instanceof CliExit) {
+      process.exitCode = error.code;
+      return;
+    }
+    throw error;
+  }
 }
 
 if (isEntrypoint(process.argv[1])) {

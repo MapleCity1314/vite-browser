@@ -43,9 +43,11 @@ Escalate to `vite-browser-network-regression` if:
 vite-browser open <url>
 vite-browser detect
 vite-browser vite runtime
-vite-browser errors --mapped
+vite-browser errors --mapped --inline-source
 vite-browser logs
 ```
+
+In `v0.3.1+`, prefer `errors --mapped --inline-source` over plain `errors` during first-pass triage. It now captures browser-side runtime failures even when the Vite overlay is absent.
 
 Then branch based on routing decision:
 

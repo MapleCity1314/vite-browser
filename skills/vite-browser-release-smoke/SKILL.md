@@ -19,19 +19,21 @@ Validate:
 3. Core user paths load and navigate
 4. Network has no critical failures
 5. HMR/runtime sanity on one edit cycle
-6. No obvious v0.2 diagnosis hit before sign-off
+6. No obvious runtime/diagnosis hit before sign-off
 
 ## Command template
 
 ```bash
 vite-browser open <url>
 vite-browser detect
-vite-browser errors
+vite-browser errors --mapped --inline-source
 vite-browser logs
 vite-browser network
 vite-browser vite runtime
 vite-browser screenshot
 ```
+
+For `v0.3.1+`, use `errors --mapped --inline-source` in smoke checks even when no Vite overlay is visible. Browser-side runtime failures should now be treated as release blockers if they surface there or in `logs`.
 
 If Vue app:
 
@@ -48,6 +50,7 @@ vite-browser vite hmr clear
 # reproduce one change
 vite-browser errors --mapped --inline-source
 vite-browser correlate errors --mapped --window 5000
+## wait briefly if the repro depends on a UI interaction
 vite-browser diagnose hmr --limit 50
 vite-browser vite hmr trace --limit 20
 vite-browser vite module-graph clear

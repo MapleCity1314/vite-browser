@@ -15,13 +15,23 @@ const installHook = hasReactExtension
 export type BrowserFramework = "vue" | "react" | "svelte" | "unknown";
 export type HmrEventType = "connecting" | "connected" | "update" | "full-reload" | "error" | "log";
 export type HmrEvent = { timestamp: number; type: HmrEventType; message: string; path?: string };
+export type RuntimeError = {
+  timestamp: number;
+  message: string;
+  stack?: string;
+  source?: string | null;
+  line?: number | null;
+  col?: number | null;
+};
 export type BrowserSessionState = {
   context: BrowserContext | null;
   page: Page | null;
   framework: BrowserFramework;
   extensionModeDisabled: boolean;
+  collectorInstalled: boolean;
   consoleLogs: string[];
   hmrEvents: HmrEvent[];
+  runtimeErrors: RuntimeError[];
   lastReactSnapshot: ReactNode[];
   lastModuleGraphUrls: string[] | null;
 };
@@ -32,8 +42,10 @@ export function createBrowserSessionState(): BrowserSessionState {
     page: null,
     framework: "unknown",
     extensionModeDisabled: false,
+    collectorInstalled: false,
     consoleLogs: [],
     hmrEvents: [],
+    runtimeErrors: [],
     lastReactSnapshot: [],
     lastModuleGraphUrls: null,
   };
@@ -49,8 +61,10 @@ export function resetBrowserSessionState(state: BrowserSessionState): void {
   state.context = null;
   state.page = null;
   state.framework = "unknown";
+  state.collectorInstalled = false;
   state.consoleLogs.length = 0;
   state.hmrEvents.length = 0;
+  state.runtimeErrors.length = 0;
   state.lastModuleGraphUrls = null;
   state.lastReactSnapshot = [];
 }

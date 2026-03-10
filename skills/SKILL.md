@@ -43,9 +43,11 @@ If two skills apply:
 ```bash
 vite-browser open <url>
 vite-browser detect
-vite-browser errors
+vite-browser errors --mapped --inline-source
 vite-browser logs
 ```
+
+Treat `errors --mapped --inline-source` as the primary error read when reproducing live runtime failures in `v0.3.1+`. It can now surface browser-side runtime errors even when the Vite overlay is absent.
 
 Then continue with the selected specialized skill and stop using the router skill.
 
@@ -87,6 +89,8 @@ vite-browser vite module-graph clear
 vite-browser errors --mapped --inline-source
 vite-browser correlate errors [--window <ms>]
 vite-browser correlate errors --mapped --inline-source
+vite-browser correlate renders [--window <ms>]
+vite-browser diagnose propagation [--window <ms>]
 vite-browser diagnose hmr [--window <ms>] [--limit <n>]
 ```
 

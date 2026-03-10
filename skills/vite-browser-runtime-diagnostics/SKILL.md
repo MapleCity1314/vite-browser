@@ -31,6 +31,8 @@ vite-browser vite module-graph --limit 200
 vite-browser vite module-graph trace --limit 200
 ```
 
+In `v0.3.1+`, `errors --mapped --inline-source` is also the right first read for browser-side runtime failures that never appear in the Vite overlay. Do not assume `no errors` means the page is healthy unless `logs` and the visible browser state agree.
+
 Use `diagnose propagation` first when the question is about rerenders, component paths, store changes, or "what update actually flowed into this failure". Treat its output as a high-confidence propagation clue, not strict causal proof. Use `diagnose hmr` first when the problem still looks primarily transport/HMR-layer.
 
 ## Diagnostic patterns
@@ -60,10 +62,11 @@ Use `diagnose propagation` first when the question is about rerenders, component
 ### Store or component propagation
 
 1. Reproduce once after the visible failure.
-2. `correlate renders --window 5000`
-3. `diagnose propagation --window 5000`
-4. Use `Store Updates`, `Changed Keys`, and `Render Path` to choose the first store/component to inspect.
-5. If the output is inconclusive or says no trace is available, keep the conclusion conservative and do not overstate a causal chain.
+2. Wait briefly for queued render/store events to settle if reproduction was driven by a live interaction or hot update. A short delay such as ~300ms is usually enough.
+3. `correlate renders --window 5000`
+4. `diagnose propagation --window 5000`
+5. Use `Store Updates`, `Changed Keys`, and `Render Path` to choose the first store/component to inspect.
+6. If the output is inconclusive or says no trace is available, keep the conclusion conservative and do not overstate a causal chain.
 
 ### Stack mapping
 

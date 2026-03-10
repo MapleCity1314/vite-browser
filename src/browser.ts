@@ -16,6 +16,7 @@ import {
   ensureBrowserPage,
   getCurrentPage as getSessionPage,
   type HmrEvent,
+  type RuntimeError,
 } from "./browser-session.js";
 import {
   collectModuleRows,
@@ -44,6 +45,7 @@ const session = createBrowserSessionState();
 let eventQueue: EventQueue | null = null;
 const MAX_LOGS = 200;
 const MAX_HMR_EVENTS = 500;
+const MAX_RUNTIME_ERRORS = 50;
 export type ModuleGraphMode = "snapshot" | "trace" | "clear";
 
 export function setEventQueue(queue: EventQueue): void {
@@ -62,6 +64,10 @@ export function getCurrentPage(): Page | null {
  * Inject browser-side event collector into the page
  */
 async function injectEventCollector(currentPage: Page): Promise<void> {
+  if (session.context && !session.collectorInstalled) {
+    await session.context.addInitScript(initBrowserEventCollector);
+    session.collectorInstalled = true;
+  }
   await currentPage.evaluate(initBrowserEventCollector);
 }
 
@@ -105,7 +111,17 @@ async function ensurePage(): Promise<Page> {
 
 function attachListeners(currentPage: Page) {
   currentPage.on("console", (msg) => {
-    recordConsoleMessage(session.consoleLogs, session.hmrEvents, msg.type(), msg.text());
+    const type = msg.type();
+    const message = msg.text();
+    recordConsoleMessage(session.consoleLogs, session.hmrEvents, type, message);
+
+    if (type === "error" || isVueUnhandledWarning(type, message)) {
+      recordRuntimeError(session.runtimeErrors, message, undefined, undefined, undefined, undefined);
+    }
+  });
+
+  currentPage.on("pageerror", (error) => {
+    recordRuntimeError(session.runtimeErrors, error.message, error.stack, undefined, undefined, undefined, "pageerror");
   });
 }
 
@@ -126,6 +142,44 @@ export function recordConsoleMessage(
   const event = parseViteLog(message);
   events.push(event);
   if (events.length > maxEvents) events.shift();
+}
+
+export function recordRuntimeError(
+  runtimeErrors: RuntimeError[],
+  message: string,
+  stack?: string,
+  source?: string | null,
+  line?: number | null,
+  col?: number | null,
+  logType = "runtime-error",
+  maxErrors = MAX_RUNTIME_ERRORS,
+) {
+  const error: RuntimeError = {
+    timestamp: Date.now(),
+    message,
+    stack,
+    source,
+    line,
+    col,
+  };
+  runtimeErrors.push(error);
+  if (runtimeErrors.length > maxErrors) runtimeErrors.shift();
+
+  eventQueue?.push({
+    timestamp: error.timestamp,
+    type: "error",
+    payload: {
+      message,
+      stack,
+      source,
+      line,
+      col,
+    },
+  });
+
+  const details = stack ? `${message}\n${stack}` : message;
+  session.consoleLogs.push(`[${logType}] ${details}`);
+  if (session.consoleLogs.length > MAX_LOGS) session.consoleLogs.shift();
 }
 
 export function parseViteLog(message: string): HmrEvent {
@@ -276,15 +330,31 @@ export async function viteModuleGraph(
 export async function errors(mapped = false, inlineSource = false): Promise<string> {
   const currentPage = requireCurrentPage();
   const errorInfo = await readOverlayError(currentPage);
+  const runtimeError = session.runtimeErrors[session.runtimeErrors.length - 1];
 
-  if (!errorInfo) return "no errors";
+  if (!errorInfo && !runtimeError) return "no errors";
 
-  const raw = `${errorInfo.message ?? "Vite error"}\n\n${errorInfo.stack ?? ""}`.trim();
+  const raw = errorInfo
+    ? `${errorInfo.message ?? "Vite error"}\n\n${errorInfo.stack ?? ""}`.trim()
+    : formatRuntimeError(runtimeError!);
   if (!mapped) return raw;
 
   const origin = new URL(currentPage.url()).origin;
   const mappedStack = await mapStackTrace(raw, origin, inlineSource);
   return mappedStack;
+}
+
+function formatRuntimeError(error: RuntimeError): string {
+  const location =
+    error.source && error.line != null && error.col != null
+      ? `\n\nat ${error.source}:${error.line}:${error.col}`
+      : "";
+  return `${error.message}${location}${error.stack ? `\n\n${error.stack}` : ""}`.trim();
+}
+
+function isVueUnhandledWarning(type: string, message: string): boolean {
+  if (type !== "warning") return false;
+  return /\[Vue warn\]: Unhandled error during execution/i.test(message);
 }
 
 export async function logs(): Promise<string> {

@@ -148,6 +148,7 @@ describe("browser runtime flows", () => {
     expect(mockState.page.goto).toHaveBeenCalledWith("http://localhost:5173/app", { waitUntil: "domcontentloaded" });
     expect(browser.getCurrentPage()).toBe(mockState.page as never);
     expect(mockState.networkAttach).toHaveBeenCalledWith(mockState.page);
+    expect(mockState.context.addInitScript).toHaveBeenCalled();
   });
 
   it("supports goto, back, reload, cookies, and close", async () => {
@@ -229,8 +230,10 @@ describe("browser runtime flows", () => {
     await browser.open("http://localhost:5173/app");
 
     const consoleHandler = mockState.handlers.console as (msg: { type(): string; text(): string }) => void;
+    const pageErrorHandler = mockState.handlers.pageerror as (error: Error) => void;
     consoleHandler({ type: () => "log", text: () => "[vite] connected." });
     consoleHandler({ type: () => "error", text: () => "plain issue" });
+    pageErrorHandler(new Error("TypeError: runtime boom"));
 
     mockState.evaluateResults = [
       {
@@ -260,7 +263,7 @@ describe("browser runtime flows", () => {
     mockState.evaluateResults = [{ message: "TypeError: boom", stack: "at http://localhost:5173/src/main.ts:20:5" }];
     expect(await browser.errors(true, true)).toContain("# Mapped Stack");
 
-    expect(await browser.logs()).toContain("[error] plain issue");
+    expect(await browser.logs()).toContain("[pageerror] TypeError: runtime boom");
     expect(await browser.screenshot()).toContain("vite-browser-");
 
     mockState.scriptResult = { title: "Demo" };
@@ -276,5 +279,19 @@ describe("browser runtime flows", () => {
 
     mockState.evaluateResults = ["restart endpoint not available"];
     expect(await browser.viteRestart()).toContain("restart endpoint not available");
+  });
+
+  it("falls back to captured runtime errors when the Vite overlay is absent", async () => {
+    mockState.evaluateResults = [undefined, "vue@3.5.0"];
+    await browser.open("http://localhost:5173/app");
+
+    const pageErrorHandler = mockState.handlers.pageerror as (error: Error) => void;
+    pageErrorHandler(new Error("TypeError: fallback boom\n    at http://localhost:5173/src/App.vue:9:3"));
+
+    mockState.evaluateResults = [null];
+    expect(await browser.errors()).toContain("TypeError: fallback boom");
+
+    mockState.evaluateResults = [null];
+    expect(await browser.errors(true, true)).toContain("# Mapped Stack");
   });
 });

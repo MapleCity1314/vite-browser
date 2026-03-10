@@ -293,12 +293,24 @@ OPTIONS
 `;
 }
 
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replaceAll("\\", "/"))) {
+function isEntrypoint(argv1: string | undefined): boolean {
+  return Boolean(argv1 && import.meta.url.endsWith(argv1.replaceAll("\\", "/")));
+}
+
+async function main() {
   await runCli(process.argv, {
     send,
     readFile: readFileSync,
     stdout: (text) => console.log(text),
     stderr: (text) => console.error(text),
     exit: (code) => process.exit(code),
+  });
+}
+
+if (isEntrypoint(process.argv[1])) {
+  void main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(message);
+    process.exit(1);
   });
 }

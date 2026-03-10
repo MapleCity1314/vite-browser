@@ -43,6 +43,20 @@ Made for local debugging and AI agents that need structured runtime output inste
 
 Repo: https://github.com/MapleCity1314/vite-browser
 
+## X / Twitter Post For v0.3.1
+
+Shipped `vite-browser` `v0.3.1`.
+
+This patch tightens the runtime-debugging loop for real Vite failures:
+- runtime errors are now captured even when the Vite overlay is absent
+- Vue-side render failures flow into mapped error output
+- propagation diagnosis works better in live repros once the update/error window is reproduced
+- CLI execution is cleaner for local scripted use
+
+Useful when a Vite app breaks after an update and you need terminal-readable evidence instead of guessing from the browser UI.
+
+Repo: https://github.com/MapleCity1314/vite-browser
+
 ## Forum Post
 
 I built `vite-browser`, a runtime diagnostics CLI for Vite applications.
@@ -86,6 +100,15 @@ Use these points consistently:
 - `v0.2.2` is the stabilization patch that tightens wording, evidence handling, and diagnosis coverage without changing the product model.
 - It does not yet claim full component propagation tracing or perfect root-cause inference across deep dependency chains.
 - `v0.3` propagation output should be positioned as high-confidence clues and conservative narrowing, not strict causal proof.
+
+## Positioning Notes For v0.3.1
+
+Use these points consistently:
+
+- `v0.3.1` is a stabilization patch on top of the `v0.3` propagation release line.
+- It improves runtime error capture when failures do not show up in the Vite overlay.
+- It is the right release to show `errors --mapped --inline-source` against live Vue runtime failures.
+- It keeps the `v0.3` positioning: propagation output is still high-confidence narrowing, not strict causality.
 
 ## Suggested GitHub Topics
 

@@ -38,6 +38,9 @@
   "scripts": {
     "start": "node --import tsx src/cli.ts",
     "dev": "tsx src/cli.ts",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
     "prepack": "pnpm build",
@@ -55,10 +58,11 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@vitest/coverage-v8": "^4.0.18",
-    "@vue/devtools-kit": "^7.3.2",
     "@vue/devtools-api": "^7.3.2",
+    "@vue/devtools-kit": "^7.3.2",
     "tsx": "^4.20.6",
     "typescript": "^5.7.0",
+    "vitepress": "^1.6.4",
     "vitest": "^4.0.16"
   },
   "packageManager": "pnpm@10.29.2"

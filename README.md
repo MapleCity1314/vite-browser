@@ -2,19 +2,21 @@
 
 **Explain why your Vite app broke after a hot update.**
 
-`vite-browser` is a runtime diagnostics toolchain for Vite apps. It connects current errors to recent HMR activity, traces store and module updates into rerender paths, and returns structured terminal output that both developers and AI agents can reason about directly.
+`vite-browser` is a runtime diagnostics toolchain for Vite apps. The recommended way to use it is as an Agent Skills router: install the skill, connect it to your AI IDE, then let it route into the right Vite debugging workflow.
 
 No plugin installation. No GUI. Just connect to a running Vite dev server and start querying.
 
-**CLI**
+Docs: https://maplecity1314.github.io/vite-browser/
+
+**Recommended: Agent Skill**
+```bash
+npx skills add MapleCity1314/vite-browser
+```
+
+**CLI Runtime**
 ```bash
 npm install -g @presto1314w/vite-devtools-browser
 npx playwright install chromium
-```
-
-**Agent Skill**
-```bash
-npx skills add MapleCity1314/vite-browser
 ```
 
 ---
@@ -34,7 +36,22 @@ You want to know:
 
 ---
 
-## Quickstart
+## Skill-First Quickstart
+
+```bash
+# Claude Code
+npx skills add MapleCity1314/vite-browser
+```
+
+Then wire the repo into your coding agent:
+
+- Claude Code: add a short reminder in `CLAUDE.md`
+- Codex: check in `skills/` and route via `AGENTS.md`
+- Cursor: check in `skills/` and route via `AGENTS.md` or `.cursor/rules`
+
+Setup guide: https://maplecity1314.github.io/vite-browser/guide/ide-setup
+
+Manual CLI fallback:
 
 ```bash
 # terminal A - your app
@@ -47,6 +64,24 @@ vite-browser errors --mapped --inline-source
 vite-browser correlate errors --mapped --window 5000
 vite-browser close
 ```
+
+---
+
+## AI IDE Setup
+
+| Tool | Recommended setup |
+|---|---|
+| Claude Code | `npx skills add MapleCity1314/vite-browser` + a short repo hint in `CLAUDE.md` |
+| Codex | commit `skills/` and route through `AGENTS.md` |
+| Cursor | commit `skills/` and route through `AGENTS.md` or `.cursor/rules` |
+
+Examples:
+
+- `examples/ai-ide/CLAUDE.md`
+- `examples/ai-ide/AGENTS.codex.md`
+- `examples/ai-ide/cursor-vite-browser.mdc`
+
+Detailed setup guide: https://maplecity1314.github.io/vite-browser/guide/ide-setup
 
 ---
 
@@ -107,13 +142,17 @@ Four commands. You know the store update broke the render path. You know where t
 
 ---
 
-## Built For Agents
+## Agent Skills First
 
 Models cannot visually inspect a DevTools panel. They work much better when runtime signals are structured commands that can be queried, compared, and chained in a loop.
 
-`vite-browser` turns Vite runtime state, HMR activity, module graph changes, framework component trees, mapped errors, and network activity into terminal output an agent can consume directly.
+`vite-browser` turns Vite runtime state, HMR activity, module graph changes, framework component trees, mapped errors, and network activity into terminal output an agent can consume directly. The intended product shape is:
 
-Each command is a one-shot request against a long-lived browser daemon - no browser lifecycle management on every step, no GUI dependency, no project config changes required.
+1. install the skill router
+2. let the agent route into the right pack
+3. use the CLI as the execution layer underneath
+
+Each CLI command is a one-shot request against a long-lived browser daemon - no browser lifecycle management on every step, no GUI dependency, no project config changes required.
 
 ```bash
 # an agent debugging loop looks like this
@@ -125,11 +164,20 @@ vite-browser diagnose propagation --window 5000
 vite-browser diagnose hmr --limit 50
 ```
 
-Agent Skill workflows are also available for scenario-based debugging in coding assistants:
+The router and packs live in:
 
-```bash
-npx skills add MapleCity1314/vite-browser
+```text
+skills/SKILL.md
+skills/vite-browser-core-debug/SKILL.md
+skills/vite-browser-runtime-diagnostics/SKILL.md
+skills/vite-browser-network-regression/SKILL.md
+skills/vite-browser-release-smoke/SKILL.md
 ```
+
+AI IDE setup docs:
+
+- Agent Skills overview: https://maplecity1314.github.io/vite-browser/guide/agent-skills
+- Claude Code / Codex / Cursor setup: https://maplecity1314.github.io/vite-browser/guide/ide-setup
 
 ---
 

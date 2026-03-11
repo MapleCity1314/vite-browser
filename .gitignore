@@ -4,6 +4,9 @@ dist/
 .DS_Store
 *.tsbuildinfo
 .vite-browser/
+.vitepress/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 
 .claude/
 .agents/

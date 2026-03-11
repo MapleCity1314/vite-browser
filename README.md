@@ -1,363 +1,134 @@
 # vite-browser
 
-**Explain why your Vite app broke after a hot update.**
+**Know why your Vite app broke — not just where.**
 
-`vite-browser` is a runtime diagnostics toolchain for Vite apps. The recommended way to use it is as an Agent Skills router: install the skill, connect it to your AI IDE, then let it route into the right Vite debugging workflow.
+Runtime diagnostics CLI for Vite applications. Connect to a running dev server, correlate errors with recent HMR activity, trace store-to-render propagation paths, and inspect framework state — all from the terminal, with zero project setup.
 
-No plugin installation. No GUI. Just connect to a running Vite dev server and start querying.
+Built for developers and AI coding agents alike.
 
-Docs: https://maplecity1314.github.io/vite-browser/
+📖 [Documentation](https://maplecity1314.github.io/vite-browser/) · 📦 [npm](https://www.npmjs.com/package/@presto1314w/vite-devtools-browser)
 
-**Recommended: Agent Skill**
+## Install
+
+**Agent Skill** (recommended):
+
 ```bash
 npx skills add MapleCity1314/vite-browser
 ```
 
-**CLI Runtime**
+**CLI only:**
+
 ```bash
 npm install -g @presto1314w/vite-devtools-browser
 npx playwright install chromium
 ```
 
----
-
-## The Problem It Solves
+## The problem
 
 You save a file. Vite hot-updates. The page breaks.
 
-The error overlay tells you *what* broke. It does not tell you *why the update caused it*.
+The error overlay tells you _what_ failed — but not _which update caused it_, how the change propagated through your component tree, or whether the real problem is a stale store, a broken import, or a network regression.
 
-You want to know:
-- which module change triggered this error
-- whether a store update propagated into a broken render path
-- what the HMR timeline looked like before the failure
-
-`vite-browser` answers these questions from the terminal, without touching your project config.
-
----
-
-## Skill-First Quickstart
+## What vite-browser does
 
 ```bash
-# Claude Code
-npx skills add MapleCity1314/vite-browser
-```
-
-Then wire the repo into your coding agent:
-
-- Claude Code: add a short reminder in `CLAUDE.md`
-- Codex: check in `skills/` and route via `AGENTS.md`
-- Cursor: check in `skills/` and route via `AGENTS.md` or `.cursor/rules`
-
-Setup guide: https://maplecity1314.github.io/vite-browser/guide/ide-setup
-
-Manual CLI fallback:
-
-```bash
-# terminal A - your app
-cd my-app && npm run dev
-
-# terminal B - diagnostics
-vite-browser open http://localhost:5173
-vite-browser vite runtime
-vite-browser errors --mapped --inline-source
-vite-browser correlate errors --mapped --window 5000
-vite-browser close
-```
-
----
-
-## AI IDE Setup
-
-| Tool | Recommended setup |
-|---|---|
-| Claude Code | `npx skills add MapleCity1314/vite-browser` + a short repo hint in `CLAUDE.md` |
-| Codex | commit `skills/` and route through `AGENTS.md` |
-| Cursor | commit `skills/` and route through `AGENTS.md` or `.cursor/rules` |
-
-Detailed setup guide: https://maplecity1314.github.io/vite-browser/guide/ide-setup
-
----
-
-## Example: Tracing a Broken HMR Update
-
-You edit `src/store/cart.ts`. The page breaks with `TypeError: cannot read properties of undefined`.
-
-```bash
-# 1. check what the error actually is
+# 1. See the current error with source context
 $ vite-browser errors --mapped --inline-source
 
 TypeError: Cannot read properties of undefined (reading 'items')
+  → /src/components/CartSummary.tsx:14:12
+    14 | total = cart.items.reduce(...)
 
-# Mapped Stack
-- /src/components/CartSummary.tsx:14:12
-  14 | total = cart.items.reduce(...)
-```
-
-```bash
-# 2. correlate with recent HMR activity
+# 2. Correlate with recent HMR activity
 $ vite-browser correlate errors --mapped --window 5000
 
-# Error Correlation
 Confidence: high
 HMR update observed within 5000ms of the current error
 Matching modules: /src/store/cart.ts
-```
 
-```bash
-# 3. trace how the update propagated
-$ vite-browser correlate renders --window 5000
-
-# Render Correlation
-Confidence: high
-Recent store update likely propagated through 1 render step(s).
-
-## Store Updates
-- cart
-
-## Changed Keys
-- items
-
-## Render Path
-- AppShell > ShoppingCart > CartSummary
-```
-
-```bash
-# 4. get a structured diagnosis
+# 3. Trace the propagation path
 $ vite-browser diagnose propagation --window 5000
 
-# Propagation Diagnosis
-Status: fail
-Confidence: high
-A plausible store -> render -> error propagation path was found.
+Status: fail | Confidence: high
+Store → Render → Error path found:
+  store: cart (changedKeys: items)
+  render: AppShell > ShoppingCart > CartSummary
 ```
 
 Four commands. You know the store update broke the render path. You know where to fix it.
 
----
+## Key features
 
-## Agent Skills First
+- **Error correlation** — Match errors against recent HMR-updated modules within a time window
+- **Propagation diagnosis** — Trace `store → render → error` paths with confidence levels
+- **HMR diagnosis** — Detect patterns like `missing-module`, `circular-dependency`, `hmr-websocket-closed`
+- **Framework inspection** — Vue trees, Pinia stores, Vue Router, React props/hooks/state, Svelte trees
+- **Mapped errors** — Source-mapped stack traces with inline source snippets
+- **Zero config** — No plugins, no project changes. Works with any running Vite dev server
 
-Models cannot visually inspect a DevTools panel. They work much better when runtime signals are structured commands that can be queried, compared, and chained in a loop.
+## Agent Skills
 
-`vite-browser` turns Vite runtime state, HMR activity, module graph changes, framework component trees, mapped errors, and network activity into terminal output an agent can consume directly. The intended product shape is:
+`vite-browser` is designed skill-first. The skill router automatically picks the right debugging workflow based on the symptom:
 
-1. install the skill router
-2. let the agent route into the right pack
-3. use the CLI as the execution layer underneath
+| Symptom | Routed to |
+|---|---|
+| Broad / unclear failure | `core-debug` |
+| Recent edit or HMR breakage | `runtime-diagnostics` |
+| Wrong data or failed requests | `network-regression` |
+| Pre-merge verification | `release-smoke` |
 
-Each CLI command is a one-shot request against a long-lived browser daemon - no browser lifecycle management on every step, no GUI dependency, no project config changes required.
+AI coding agents (Claude Code, Codex, Cursor) follow the structured workflow instead of guessing.
+
+→ [Agent Skills guide](https://maplecity1314.github.io/vite-browser/guide/agent-skills) · [AI IDE Setup](https://maplecity1314.github.io/vite-browser/guide/ide-setup)
+
+## Quick reference
 
 ```bash
-# an agent debugging loop looks like this
-vite-browser vite runtime
+# Browser
+vite-browser open <url>          # Launch and navigate
+vite-browser close               # Close browser and daemon
+
+# Diagnostics
 vite-browser errors --mapped --inline-source
-vite-browser correlate errors --mapped --window 5000
-vite-browser correlate renders --window 5000
-vite-browser diagnose propagation --window 5000
-vite-browser diagnose hmr --limit 50
-```
+vite-browser correlate errors --mapped --window <ms>
+vite-browser correlate renders --window <ms>
+vite-browser diagnose hmr --limit <n>
+vite-browser diagnose propagation --window <ms>
 
-The router and packs live in:
-
-```text
-skills/SKILL.md
-skills/vite-browser-core-debug/SKILL.md
-skills/vite-browser-runtime-diagnostics/SKILL.md
-skills/vite-browser-network-regression/SKILL.md
-skills/vite-browser-release-smoke/SKILL.md
-```
-
-AI IDE setup docs:
-
-- Agent Skills overview: https://maplecity1314.github.io/vite-browser/guide/agent-skills
-- Claude Code / Codex / Cursor setup: https://maplecity1314.github.io/vite-browser/guide/ide-setup
-
----
-
-## Core Capabilities
-
-**Framework detection**
-- Vue, React, Svelte best-effort detection with version hinting
-
-**Vue runtime**
-- component tree and details
-- Pinia stores, getters, and changed keys
-- Vue Router state
-
-**React runtime**
-- component tree with props, state, hooks, context, and source metadata
-
-**Svelte runtime**
-- component tree when metadata is available
-
-**Vite runtime diagnostics**
-- runtime status and HMR health
-- HMR timeline, summary, and clear
-- module graph snapshot, diff, trace, and clear
-- error / HMR correlation over configurable time windows
-- store and module update / render path correlation
-- propagation diagnosis with store updates, changed keys, and render paths
-- rule-based HMR diagnosis with confidence levels
-- source-mapped errors with optional inline source snippets
-
-**Debug utilities**
-- console logs, network tracing, screenshot, page `eval`
-
----
-
-## Positioning
-
-| Tool | Best for | Gap vs `vite-browser` |
-|---|---|---|
-| `agent-browser` | general browser automation | no Vite runtime awareness |
-| `next-browser` | Next.js + React debugging | not a Vite runtime tool |
-| `vite-plugin-vue-mcp` | Vue MCP integration | requires plugin install, Vue only |
-| `vite-browser` | Vite runtime diagnostics for agents and developers | browser lifecycle coverage still expanding |
-
-`vite-browser` requires no changes to your project. It works against any running Vite dev server across Vue, React, and Svelte.
-
----
-
-## Recommended Workflows
-
-### HMR / runtime triage
-```bash
-vite-browser vite runtime
-vite-browser errors --mapped --inline-source
-vite-browser correlate errors --mapped --window 5000
-vite-browser diagnose hmr --limit 50
-vite-browser vite hmr trace --limit 50
-vite-browser vite module-graph trace --limit 200
-```
-
-### Propagation / rerender triage
-```bash
-vite-browser correlate renders --window 5000
-vite-browser diagnose propagation --window 5000
-vite-browser vue pinia
-vite-browser vue tree
-```
-
-### Data / API triage
-```bash
-vite-browser errors --mapped
-vite-browser logs
-vite-browser network
-vite-browser network <idx>
-vite-browser eval '<state probe>'
-```
-
-### Component / state triage
-```bash
+# Framework
 vite-browser detect
-vite-browser vue tree
-vite-browser vue pinia
-vite-browser vue router
+vite-browser vue tree | vue pinia | vue router
 vite-browser react tree
 vite-browser svelte tree
-```
 
----
-
-## Command Reference
-
-### Browser
-```bash
-vite-browser open <url> [--cookies-json <file>]
-vite-browser close
-vite-browser goto <url>
-vite-browser back
-vite-browser reload
-```
-
-### Framework
-```bash
-vite-browser detect
-vite-browser vue tree [id]
-vite-browser vue pinia [store]
-vite-browser vue router
-vite-browser react tree [id]
-vite-browser svelte tree [id]
-```
-
-### Vite Runtime
-```bash
-vite-browser vite restart
+# Vite runtime
 vite-browser vite runtime
-vite-browser vite hmr
-vite-browser vite hmr trace [--limit <n>]
-vite-browser vite hmr clear
-vite-browser vite module-graph [--filter <txt>] [--limit <n>]
-vite-browser vite module-graph trace [--filter <txt>] [--limit <n>]
-vite-browser vite module-graph clear
-vite-browser errors
-vite-browser errors --mapped
-vite-browser errors --mapped --inline-source
-vite-browser correlate errors [--window <ms>]
-vite-browser correlate renders [--window <ms>]
-vite-browser correlate errors --mapped --inline-source
-vite-browser diagnose hmr [--window <ms>] [--limit <n>]
-vite-browser diagnose propagation [--window <ms>]
+vite-browser vite hmr trace --limit <n>
+vite-browser vite module-graph trace --limit <n>
+
+# Utilities
+vite-browser logs | network | screenshot | eval <script>
 ```
 
-### Utilities
-```bash
-vite-browser logs
-vite-browser network [idx]
-vite-browser screenshot
-vite-browser eval <script>
-```
+→ [Full CLI reference](https://maplecity1314.github.io/vite-browser/reference/cli)
 
----
+## Current scope
 
-## Current Boundaries
+`v0.3.3` is reliable at surfacing runtime state, correlating errors with HMR activity, detecting common HMR failure patterns, and narrowing `store → render → error` paths in Vue + Pinia workflows.
 
-`v0.3.3` is strong at:
-- surfacing runtime state as structured shell output
-- linking current errors to recent HMR and module activity
-- detecting common HMR failure patterns with confidence levels
-- narrowing likely store/module -> render paths in Vue-first flows
-- capturing browser-side runtime errors even when the Vite overlay is absent
-- correlating sparse HMR traces back to the right source module more reliably
-- retaining `changedKeys` and source-module hints when one side of the event stream is incomplete
-- clearing stale runtime errors after recovery so the current page lifecycle is easier to trust
-
-`correlate renders` and `diagnose propagation` are **high-confidence propagation clues**, not strict causal proof. They do not reliably trace deep chains like `store -> component A -> component B -> error` across arbitrary graphs, and intentionally fall back to conservative output when evidence is incomplete.
+`correlate renders` and `diagnose propagation` are **high-confidence narrowing tools**, not strict causal proof. They intentionally produce conservative output when evidence is incomplete.
 
 React store inspection (Zustand, Redux) and deeper cross-framework propagation tracing are on the roadmap.
 
----
-
-## Skill Packs
-
-```
-skills/vite-browser-core-debug/SKILL.md
-skills/vite-browser-runtime-diagnostics/SKILL.md
-skills/vite-browser-network-regression/SKILL.md
-skills/vite-browser-release-smoke/SKILL.md
-```
-
-Router: [skills/SKILL.md](./skills/SKILL.md)
-
----
-
-## Local Development
+## Development
 
 ```bash
 pnpm install
 pnpm build
 pnpm test
-pnpm test:coverage
-pnpm test:evals
-pnpm test:evals:e2e
 ```
 
-## Requirements
-
-- Node.js `>=20`
-- Chromium via Playwright
-- Running Vite dev server
+**Requirements:** Node.js ≥ 20 · Chromium via Playwright · Running Vite dev server
 
 ## License
 

@@ -1,28 +1,15 @@
 # Network Regression
 
-## What This Capability Is For
+## When to use
 
-Use `network-regression` when the visible problem is mainly about requests, payloads, auth, cookies, CORS, or wrong UI data.
+Use `network-regression` when the visible problem is about **requests, payloads, auth, or wrong data**:
 
-Typical prompts:
+- _"The data is wrong"_
+- _"The response is empty"_
+- _"This started returning 401"_
+- _"The request looks right but the page is still wrong"_
 
-- "the data is wrong"
-- "the response is empty"
-- "this started returning 401"
-- "the request looks right but the page is still wrong"
-
-## What Humans Should Expect
-
-This capability isolates request/response mismatches quickly so you can separate frontend request-building bugs from backend response issues.
-
-## Best Practices For AI
-
-- Prefer this pack when the strongest symptom is bad or missing data.
-- Inspect specific failing requests instead of vaguely summarizing the whole network list.
-- Cross-check request evidence against current UI state and logs.
-- Switch to runtime diagnostics if the request failures only appear after a hot update or reload loop.
-
-## Standard Sequence
+## Sequence
 
 ```bash
 vite-browser open <url>
@@ -34,22 +21,24 @@ vite-browser eval '<state-probe>'
 vite-browser screenshot
 ```
 
-## Analysis Checklist
+## Analysis checklist
 
-For each suspicious request:
+For each suspicious request, check:
 
-1. URL and method correct?
-2. Status and response body expected?
-3. Request headers or body complete?
-4. CORS, auth, or cookie mismatch?
-5. UI state consistent with the response?
+1. **URL and method** — correct endpoint?
+2. **Status and body** — expected response?
+3. **Request headers/body** — complete and correct?
+4. **CORS / auth / cookies** — any mismatch?
+5. **UI consistency** — does the UI match the response?
 
-## Expected Output
+## When to switch
 
-Return:
+If request failures only appear after a hot update or reload loop, the real issue may be runtime instability. Switch to [Runtime Diagnostics](/capabilities/runtime-diagnostics).
 
-1. failing request index and endpoint
-2. concrete mismatch
-3. likely ownership: frontend request build or backend response
-4. confidence level
-5. exact retest sequence
+## Expected output
+
+1. Failing request index and endpoint
+2. Concrete mismatch description
+3. Likely ownership: frontend request build or backend response
+4. Confidence level
+5. Exact retest sequence

@@ -1,8 +1,10 @@
 # Workflows
 
-## HMR Runtime Triage
+Debugging recipes for common Vite failure scenarios.
 
-Use this path when a file save is followed by a broken screen, stale overlay, or a component that rerendered incorrectly.
+## HMR triage
+
+**When:** A file save is followed by a broken screen, stale overlay, or incorrectly rerendered component.
 
 ```bash
 vite-browser vite runtime
@@ -12,15 +14,14 @@ vite-browser correlate errors --mapped --window 5000
 vite-browser diagnose hmr --limit 50
 ```
 
-What you are trying to answer:
+**What you're answering:**
+- Did HMR fire cleanly?
+- Which module changed most recently?
+- Does the current error match that update window?
 
-- did HMR fire cleanly
-- which module changed most recently
-- whether the current error plausibly matches that update window
+## Propagation triage
 
-## Propagation Rerender Triage
-
-Use this path when a store update or framework-side state mutation appears to have broken a downstream render path.
+**When:** A store update or state mutation appears to have broken a downstream render path.
 
 ```bash
 vite-browser correlate renders --window 5000
@@ -29,15 +30,11 @@ vite-browser vue pinia
 vite-browser vue tree
 ```
 
-This is the strongest current path for Vue and Pinia repros where the bug feels like:
+**Best for:** Vue + Pinia workflows where the bug pattern is `store change → rerender → broken component`.
 
-```text
-changed store module -> rerender -> broken component
-```
+## Network triage
 
-## Network And Runtime Triage
-
-Use this path when the failure might come from API responses, browser-side exceptions, or missing client state.
+**When:** The failure is wrong data, failed requests, or missing client state — not an HMR issue.
 
 ```bash
 vite-browser errors --mapped
@@ -47,11 +44,11 @@ vite-browser network 0
 vite-browser eval '<state probe>'
 ```
 
-This path is useful when the HMR signal is a distraction and the real issue is a failing request or a bad runtime assumption.
+**Tip:** If network failures only appear after a hot update or reload loop, switch to [Runtime Diagnostics](/capabilities/runtime-diagnostics) instead.
 
-## Agent Loop Pattern
+## Agent loop
 
-For agent-driven debugging, keep the loop short and comparable:
+**When:** An AI agent is driving the debugging session. Keep the loop short and output comparable:
 
 ```bash
 vite-browser vite runtime
@@ -60,10 +57,10 @@ vite-browser correlate errors --mapped --window 5000
 vite-browser diagnose hmr --limit 50
 ```
 
-Then only expand into `correlate renders`, `network`, or framework-specific inspection if the previous step suggests it.
+Expand into `correlate renders`, `network`, or framework-specific commands only when the previous step suggests it.
 
-## Session Hygiene
+## Tips
 
-- clear stale assumptions by re-running `errors` after reload or navigation
-- prefer shorter time windows first when reproductions are tight
-- avoid very long command chains before checking whether the current page state actually changed
+- **Re-run after navigation.** Reload or navigate, then re-run `errors` to avoid stale state.
+- **Start with short windows.** Use `--window 5000` for tight repros; widen only if needed.
+- **Follow the strongest signal.** Don't run every command every time — let the most prominent evidence drive the next step.

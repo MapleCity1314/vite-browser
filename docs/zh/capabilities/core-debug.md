@@ -1,33 +1,18 @@
 # Core Debug
 
-## 这个能力块解决什么问题
+## 什么时候用
 
-当应用坏了，但你还说不清主要是 runtime、network 还是组件状态问题时，用 `core-debug`。
+当应用坏了，但你还不确定问题到底是 runtime/HMR 问题、网络/数据问题，还是框架状态问题时，用 `core-debug`。
 
-它是最宽的一层首轮排查，主要回答：
+这是**最宽的首轮排查**能力。它负责分类故障、然后路由到正确的下一步。
 
-- 这是不是 runtime/HMR 问题
-- 这是不是 network/data 问题
-- 还是更像框架/组件状态问题
+## 典型症状
 
-## 给人看的说明
+- _"页面坏了"_
+- _"组件状态不对"_
+- _"改了点东西后 UI 很奇怪"_
 
-它最适合处理这种模糊问题：
-
-- “页面坏了”
-- “组件状态不对”
-- “改了点东西之后 UI 很怪”
-
-它不负责证明根因，只负责把问题先分到正确类别。
-
-## 给 AI 的最佳实践
-
-- 只有在失败类型还很泛时才从这里开始。
-- 先跑错误与 runtime 的入口命令，再决定要不要看组件树。
-- 一旦证据明显指向 runtime 或 network，就立刻切出去。
-- 不要在主故障类型已经明确后还继续停留在 `core-debug`。
-
-## 标准序列
+## 命令序列
 
 ```bash
 vite-browser open <url>
@@ -37,11 +22,11 @@ vite-browser errors --mapped --inline-source
 vite-browser logs
 ```
 
-然后分支：
+根据 `detect` 的结果检查框架状态：
 
-- Vue：`vue tree`、`vue pinia`、`vue router`
-- React：`react tree`
-- Svelte：`svelte tree`
+- **Vue：** `vue tree`、`vue pinia`、`vue router`
+- **React：** `react tree`
+- **Svelte：** `svelte tree`
 
 需要时交叉验证：
 
@@ -51,25 +36,21 @@ vite-browser screenshot
 vite-browser eval '<script>'
 ```
 
-## 路由规则
+## 何时切出
 
-切到 `runtime-diagnostics`：
-
+切到 **[Runtime Diagnostics](/zh/capabilities/runtime-diagnostics)**：
 - 问题出现在最近编辑或热更新之后
-- 日志提到了 HMR、reload、import 失败或 websocket 不稳定
-- 页面意外刷新或 full reload
+- 日志提到 HMR、reload、import 失败或 WebSocket 不稳定
+- 页面意外 full-reload
 
-切到 `network-regression`：
-
-- 主要症状是数据不对、缺数据或请求失败
-- network 里出现 4xx、5xx、`FAIL`、auth 或 CORS 问题
+切到 **[Network Regression](/zh/capabilities/network-regression)**：
+- 主要症状是数据错了或缺了
+- 网络请求出现 4xx、5xx、auth 或 CORS 问题
 
 ## 期望输出
 
-返回：
-
 1. 已确认的症状
-2. 最可能的故障类别
+2. 最可能的故障类别（runtime / 网络 / 状态）
 3. 证据命令和关键输出
 4. 置信度
-5. 最小下一步或下一能力块
+5. 推荐的下一个能力包

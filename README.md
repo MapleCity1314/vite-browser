@@ -75,12 +75,6 @@ vite-browser close
 | Codex | commit `skills/` and route through `AGENTS.md` |
 | Cursor | commit `skills/` and route through `AGENTS.md` or `.cursor/rules` |
 
-Examples:
-
-- `examples/ai-ide/CLAUDE.md`
-- `examples/ai-ide/AGENTS.codex.md`
-- `examples/ai-ide/cursor-vite-browser.mdc`
-
 Detailed setup guide: https://maplecity1314.github.io/vite-browser/guide/ide-setup
 
 ---

@@ -1,59 +1,59 @@
 # Concepts
 
-## Product Model
+## The debugging loop
 
-`vite-browser` is not a browser automation framework with a few Vite commands bolted on. It is a runtime diagnostics CLI built around a narrower loop:
+`vite-browser` is built around a specific loop:
 
-1. connect to a running Vite app
-2. inspect current runtime state
-3. compare current failures against recent update activity
-4. narrow likely causes with evidence that can be queried again
+1. **Connect** to a running Vite app
+2. **Inspect** current runtime state
+3. **Compare** current failures against recent update activity
+4. **Narrow** likely causes with evidence that can be queried again
 
-That distinction matters because most debugging pain starts after the browser already rendered something incorrect.
+This is different from general browser automation. Most debugging pain starts _after_ the browser already rendered something incorrect — `vite-browser` focuses on that moment.
 
-## What Counts As Evidence
+## Evidence types
 
-The tool works by combining signals that are often disconnected in normal debugging:
+The tool combines signals that are normally scattered across different panels:
 
-- recent HMR activity
-- module graph changes
-- framework component state
-- store updates and changed keys
-- current runtime errors
-- browser logs and network traces
+| Signal | Source | Typical strength |
+|---|---|---|
+| Current errors | Browser runtime | Strong anchor point |
+| Recent HMR updates | Vite WebSocket | Strong when fresh |
+| Module graph changes | Vite internals | Good for import/dependency issues |
+| Framework component state | Vue/React/Svelte DevTools | Good for state-related bugs |
+| Store updates & changed keys | Framework stores | Timing-sensitive |
+| Console logs & network traces | Browser APIs | Supporting evidence |
 
-The output is intentionally structured so repeated CLI calls can be compared across a live repro loop.
+All output is structured so repeated CLI calls can be compared across a live debugging session.
 
-## Confidence Language
+## Confidence levels
 
-The documentation uses different confidence levels on purpose.
+`vite-browser` uses intentional confidence language in its output:
 
-- `high confidence` means the runtime evidence chain is strong enough to present a likely explanation
-- `plausible` means the signal is useful for narrowing the search space, but not strong enough to call proven
-- `conservative output` means the tool preferred to say less rather than invent a story from weak evidence
+- **High confidence** — The evidence chain is strong enough to act on. Prioritize this file or repro step.
+- **Plausible** — Useful for narrowing the suspect set, but not enough to call proven.
+- **Conservative output** — The tool preferred to say less rather than construct a weak explanation.
 
-## What It Does Not Claim
+## What it does not claim
 
-`correlate renders` and `diagnose propagation` should be read as narrowing tools, not as a proof engine.
+`correlate renders` and `diagnose propagation` are **narrowing tools**, not proof engines.
 
-They do not guarantee perfect reconstruction of deep chains like:
+They do not guarantee reconstruction of deep chains like:
 
-```text
-store update -> component A -> component B -> async side effect -> current error
+```
+store update → component A → component B → async side effect → error
 ```
 
-across arbitrary frameworks and event timing.
+across arbitrary frameworks and timing conditions. When evidence is incomplete, the output is intentionally conservative.
 
-## Why This Works Well For Agents
+## Why this works for AI agents
 
-Agent workflows are weaker at visual inspection and stronger at repeated structured queries.
-
-That makes this shape useful:
+AI agents are weak at visual inspection but strong at repeated structured queries. `vite-browser` plays to this strength:
 
 ```bash
-vite-browser errors --mapped --inline-source
-vite-browser correlate errors --mapped --window 5000
-vite-browser diagnose hmr --limit 50
+vite-browser errors --mapped --inline-source   # what's broken
+vite-browser correlate errors --mapped          # what changed recently
+vite-browser diagnose hmr --limit 50            # what pattern matches
 ```
 
-Each step gives the model something explicit to compare instead of forcing it to infer state from a visual devtools session.
+Each command returns something concrete to compare — no screenshot parsing or DevTools navigation required.

@@ -1,36 +1,36 @@
 # Skill Packs
 
+Reference for the `vite-browser` skill routing system.
+
 ## Router
 
-`skills/SKILL.md` is the top-level router. It should be the first stop for agent-driven use.
+`skills/SKILL.md` is the top-level router. For agent-driven use, it should always be the first stop.
 
-Its job is to choose one focused pack early instead of running every workflow blindly.
+Its job: choose one focused pack early instead of running every workflow at once.
 
-## Pack Matrix
+## Pack matrix
 
-| Pack | Use when | First signals |
+| Pack | When to use | First commands |
 |---|---|---|
-| `vite-browser-core-debug` | The app is broken, but the failure mode is still broad or unclear. | `errors`, `logs`, `vite runtime`, framework tree |
-| `vite-browser-runtime-diagnostics` | The issue appeared after an edit, hot update, full reload, import failure, or runtime instability. | `errors --mapped --inline-source`, `correlate errors`, `diagnose hmr`, `diagnose propagation` |
-| `vite-browser-network-regression` | The UI shows wrong or missing data, requests fail, or auth/CORS looks broken. | `network`, `logs`, `errors --mapped`, `eval` |
-| `vite-browser-release-smoke` | You want final validation before merge or release. | `detect`, `errors`, `network`, `vite runtime`, smoke report |
+| `core-debug` | App is broken, failure mode still unclear | `errors`, `logs`, `vite runtime`, framework tree |
+| `runtime-diagnostics` | Issue after an edit, hot update, reload, import failure, or runtime instability | `errors --mapped`, `correlate errors`, `diagnose hmr`, `diagnose propagation` |
+| `network-regression` | Wrong/missing data, failed requests, auth/CORS issues | `network`, `logs`, `errors --mapped`, `eval` |
+| `release-smoke` | Final verification before merge or release | `detect`, `errors`, `network`, `vite runtime`, smoke report |
 
-## Router Policy
+## Routing policy
 
-The intended routing policy is:
+1. Start with `core-debug` only when the symptom is broad
+2. Switch to `runtime-diagnostics` when timing and recent updates matter
+3. Switch to `network-regression` when the main symptom is request or data mismatch
+4. Use `release-smoke` only for final sign-off, not root-cause discovery
 
-1. start with `core-debug` only when the symptom is broad
-2. switch immediately to `runtime-diagnostics` when timing and recent updates matter
-3. switch to `network-regression` when the main symptom is request or data mismatch
-4. use `release-smoke` only for final verification, not root-cause discovery
-
-## Why This Matters
+## Why the split exists
 
 Without the router, agents tend to:
 
-- run too many commands too early
-- mix network and runtime evidence together
-- over-explain weak evidence
-- skip the first routing decision entirely
+- Run too many commands too early
+- Mix network and runtime evidence
+- Over-explain weak evidence
+- Skip the routing decision entirely
 
-The pack split exists to prevent that.
+The pack split prevents this by encoding the first decision into the workflow.

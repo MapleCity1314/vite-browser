@@ -1,68 +1,68 @@
 # Agent Skills
 
-## Why The Docs Now Start Here
+## What are Agent Skills?
 
-The recommended way to use `vite-browser` is no longer "memorize the CLI and type commands by hand."
+Agent Skills are packaged debugging workflows that AI coding tools (Claude Code, Codex, Cursor) can follow automatically. Instead of the agent inventing an ad-hoc debugging sequence every time, a skill encodes the right steps, the right order, and the right routing logic.
 
-The primary product model is:
+`vite-browser` is designed skill-first — the CLI provides the raw commands, but the skill router provides the intelligence layer that decides _which_ commands to run and _when_.
 
-1. install the `vite-browser` skill router
-2. let the agent route into the right pack
-3. fall back to raw CLI only when you need manual control
+## Why it matters
 
-That is a better fit for real coding-agent workflows because the router encodes the first decision:
+Without a skill router, an AI agent debugging a broken Vite app will typically:
 
-- broad app failure -> `core-debug`
-- recent edit or HMR breakage -> `runtime-diagnostics`
-- bad request or wrong data -> `network-regression`
-- final verification -> `release-smoke`
+- Run too many commands too early
+- Mix network and runtime evidence together
+- Over-explain weak evidence
+- Skip the first routing decision entirely
 
-## Install The Skill Router
+The skill router solves this by encoding a single decision tree:
 
-For tools that support packaged skill installation directly:
+| Symptom | Route to |
+|---|---|
+| Broad or unclear failure | `core-debug` |
+| Recent edit or HMR breakage | `runtime-diagnostics` |
+| Wrong data or failed requests | `network-regression` |
+| Pre-merge/release verification | `release-smoke` |
+
+## Install
 
 ```bash
+# Claude Code
 npx skills add MapleCity1314/vite-browser
 ```
 
-That installs the router skill plus the pack layout it expects.
+This installs the router skill plus four focused capability packs:
 
-## What Gets Installed
-
-The router lives at:
-
-```text
-skills/SKILL.md
 ```
-
-It routes into four focused packs:
-
-```text
+skills/SKILL.md                              ← router
 skills/vite-browser-core-debug/SKILL.md
 skills/vite-browser-runtime-diagnostics/SKILL.md
 skills/vite-browser-network-regression/SKILL.md
 skills/vite-browser-release-smoke/SKILL.md
 ```
 
-## Recommended Agent Flow
+## How the agent uses it
 
-When a user says:
+When a user says something like:
 
-- "the page broke after a hot update"
-- "which recent update caused this"
-- "the UI is showing wrong data"
-- "do a release smoke pass before merge"
+- _"The page broke after a hot update"_
+- _"Which recent change caused this error?"_
+- _"The UI is showing wrong data"_
+- _"Run a smoke check before we merge"_
 
-the agent should start from the router skill and follow the routed pack instead of inventing an ad-hoc debugging sequence.
+the agent reads the router skill, picks the matching pack, and follows its structured workflow — instead of guessing.
 
-## When To Use The Raw CLI Directly
+## When to use the CLI directly
 
-The CLI still matters, but it is now the lower-level interface.
+The CLI is the lower-level interface. Use it directly when:
 
-Use it directly when:
+- You want to manually inspect a single signal
+- You are validating one specific command
+- Your environment does not support packaged skills
 
-- you want to manually inspect one specific signal
-- you are validating a single command outside an agent loop
-- your environment does not support packaged skills and you need the plain terminal workflow first
+For everything else, start from the skill router.
 
-Next: [AI IDE Setup](/guide/ide-setup)
+## Next steps
+
+- [AI IDE Setup](/guide/ide-setup) — Configure Claude Code, Codex, or Cursor
+- [Skill Packs](/reference/skill-packs) — Detailed pack reference

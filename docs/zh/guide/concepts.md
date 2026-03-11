@@ -1,59 +1,59 @@
 # 核心概念
 
-## 产品模型
+## 调试循环
 
-`vite-browser` 不是一个顺手带了几条 Vite 命令的浏览器自动化工具。它的核心是一个更窄、更直接的运行时诊断循环：
+`vite-browser` 围绕一个特定的循环构建：
 
-1. 连接到一个正在运行的 Vite 应用
-2. 读取当前运行时状态
-3. 把当前错误和最近的更新活动放到同一个时间窗口里比较
-4. 用尽量保守的方式缩小可能原因
+1. **连接**到正在运行的 Vite 应用
+2. **读取**当前运行时状态
+3. **对比**当前故障与最近的更新活动
+4. **缩小**可能的原因范围，产出可以反复查询的证据
 
-这个区别很重要，因为大多数调试痛点都发生在浏览器已经“出错了”之后。
+这和通用的浏览器自动化不同。大多数调试的痛点发生在浏览器_已经渲染出错误结果之后_ —— `vite-browser` 专注于这个时刻。
 
-## 什么算证据
+## 证据类型
 
-这个工具会把平时分散在不同位置的信号拼起来：
+这个工具把平时分散在不同面板中的信号组合起来：
 
-- 最近的 HMR 活动
-- 模块图变化
-- 框架组件状态
-- store 更新和 changed keys
-- 当前运行时错误
-- 浏览器日志和网络请求
+| 信号 | 来源 | 权重 |
+|---|---|---|
+| 当前错误 | 浏览器运行时 | 强锚点 |
+| 最近 HMR 更新 | Vite WebSocket | 新鲜时很强 |
+| 模块图变化 | Vite 内部 | 适合依赖问题 |
+| 框架组件状态 | Vue/React/Svelte DevTools | 适合状态相关的 bug |
+| Store 变化 & changed keys | 框架 store | 对时序敏感 |
+| 控制台日志 & 网络请求 | 浏览器 API | 辅助证据 |
 
-输出会尽量保持结构化，方便你在一次真实复现中反复对比。
+所有输出都保持结构化，方便在一次实际的调试过程中反复对比。
 
-## 置信度语言
+## 置信度等级
 
-文档里对置信度的表述是有意区分的：
+`vite-browser` 在输出中使用有意区分的置信度语言：
 
-- `high confidence`：证据链足够强，可以作为下一步排查的主要方向
-- `plausible`：适合缩小范围，但还不够强，不该直接当成根因定论
-- `conservative output`：证据不足时宁愿少说，也不拼出一个看起来完整但站不住的故事
+- **High confidence** —— 证据链足够强，可以据此行动。通常足以决定下一步应该看哪个文件。
+- **Plausible** —— 适合缩小怀疑范围，但还不够作为根因结论。
+- **Conservative output** —— 证据不足时，工具宁可少说，也不拼出一个站不住的解释。
 
 ## 它不声称什么
 
-`correlate renders` 和 `diagnose propagation` 应该被理解为“缩小范围工具”，不是“严格证明引擎”。
+`correlate renders` 和 `diagnose propagation` 是**缩小范围的工具**，不是因果证明引擎。
 
-它们并不保证能完美重建这种深链路：
+它们不保证能重建这样的深层链路：
 
-```text
-store update -> component A -> component B -> async side effect -> current error
+```
+store update → component A → component B → async side effect → error
 ```
 
-尤其是在跨框架、异步时序复杂或者证据缺失的时候。
+跨框架、跨异步时序的完整追踪超出当前能力。当证据不完整时，输出会有意保持保守。
 
-## 为什么适合 Agent
+## 为什么适合 AI 编码助手
 
-Agent 对图形界面观察很弱，但对结构化、可重复执行的查询很强。
-
-所以这类命令组合很适合：
+AI 编码助手不擅长图形界面的视觉检查，但很擅长反复执行结构化查询。`vite-browser` 正好发挥这个优势：
 
 ```bash
-vite-browser errors --mapped --inline-source
-vite-browser correlate errors --mapped --window 5000
-vite-browser diagnose hmr --limit 50
+vite-browser errors --mapped --inline-source   # 看看什么坏了
+vite-browser correlate errors --mapped          # 最近改了什么
+vite-browser diagnose hmr --limit 50            # 匹配到什么模式
 ```
 
-每一步都给模型一个明确可比较的结果，而不是让它从 DevTools 面板里猜状态。
+每条命令都返回具体的、可比较的结果 —— 不需要解析截图，不需要导航 DevTools。

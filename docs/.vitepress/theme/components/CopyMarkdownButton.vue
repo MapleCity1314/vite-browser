@@ -16,7 +16,7 @@ const isChinese = computed(() => page.value.relativePath.startsWith("zh/"));
 const labels = computed(() => ({
   button: isChinese.value ? "复制为 Markdown" : "Copy as Markdown",
   copied: isChinese.value ? "已复制" : "Copied",
-  missing: isChinese.value ? "未找到源 Markdown" : "Markdown source unavailable",
+  missing: isChinese.value ? "未找到 Markdown 源文件" : "Markdown source unavailable",
 }));
 
 const markdownSource = computed(() => {

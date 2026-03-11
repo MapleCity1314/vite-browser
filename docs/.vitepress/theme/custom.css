@@ -1,182 +1,303 @@
 :root {
-  --vp-c-brand-1: #0f4c5c;
-  --vp-c-brand-2: #17697c;
-  --vp-c-brand-3: #2a7f92;
-  --vp-c-brand-soft: rgba(15, 76, 92, 0.14);
-  --vp-c-indigo-1: #0f4c5c;
-  --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(120deg, #0f4c5c 10%, #c97b34 88%);
-  --vp-home-hero-image-background-image: radial-gradient(circle at 30% 30%, rgba(201, 123, 52, 0.25), transparent 40%),
-    radial-gradient(circle at 70% 40%, rgba(15, 76, 92, 0.35), transparent 45%);
-  --vp-home-hero-image-filter: blur(44px);
-  --vb-panel-border: rgba(15, 76, 92, 0.14);
-  --vb-panel-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 245, 239, 0.96));
-  --vb-grid-bg: linear-gradient(90deg, rgba(15, 76, 92, 0.04) 1px, transparent 1px),
-    linear-gradient(rgba(15, 76, 92, 0.04) 1px, transparent 1px);
+  --vp-c-brand-1: #000000;
+  --vp-c-brand-2: #333333;
+  --vp-c-brand-3: #666666;
+  --vp-c-brand-soft: rgba(0, 0, 0, 0.05);
+  --vp-c-default-soft: #f5f5f5;
+  --vp-c-bg: #ffffff;
+  --vp-c-bg-alt: #fafafa;
+  --vp-c-bg-soft: #f8f8f8;
+  --vp-c-bg-elv: rgba(255, 255, 255, 0.9);
+  --vp-c-divider: rgba(0, 0, 0, 0.08);
+  --vp-c-divider-light: rgba(0, 0, 0, 0.04);
+  --vp-c-text-1: #000000;
+  --vp-c-text-2: #666666;
+  --vp-c-text-3: #888888;
+  --vp-home-hero-name-color: #000000;
+  --vp-home-hero-name-background: none;
+  --vp-font-family-base: "Geist Sans", "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --vp-font-family-mono: "Geist Mono", "SFMono-Regular", "SF Mono", Consolas, monospace;
+  
+  --vb-grid: linear-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+  --vb-panel: rgba(255, 255, 255, 0.7);
+  --vb-panel-border: rgba(0, 0, 0, 0.08);
+  --vb-shadow: 0 12px 32px rgba(0, 0, 0, 0.04);
+  --vb-glow: radial-gradient(circle at 50% 0%, rgba(0,0,0,0.03), transparent 70%);
 }
 
-.VPHomeHero .image-bg {
-  opacity: 1;
+.dark {
+  --vp-c-brand-1: #ffffff;
+  --vp-c-brand-2: #cccccc;
+  --vp-c-brand-3: #999999;
+  --vp-c-brand-soft: rgba(255, 255, 255, 0.1);
+  --vp-c-bg: #000000;
+  --vp-c-bg-alt: #0a0a0a;
+  --vp-c-bg-soft: #111111;
+  --vp-c-bg-elv: rgba(0, 0, 0, 0.8);
+  --vp-c-divider: rgba(255, 255, 255, 0.12);
+  --vp-c-divider-light: rgba(255, 255, 255, 0.06);
+  --vp-c-text-1: #ffffff;
+  --vp-c-text-2: #a1a1aa;
+  --vp-c-text-3: #71717a;
+  --vp-home-hero-name-color: #ffffff;
+  
+  --vb-grid: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  --vb-panel: rgba(10, 10, 10, 0.6);
+  --vb-panel-border: rgba(255, 255, 255, 0.1);
+  --vb-shadow: 0 12px 32px rgba(0, 0, 0, 0.8);
+  --vb-glow: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.05), transparent 70%);
 }
 
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--vp-c-bg);
+  background-image: var(--vb-glow);
+}
+
+.Layout {
+  background-image: var(--vb-grid);
+  background-size: 32px 32px;
+  background-attachment: fixed;
+}
+
+/* Typography & Core Resets */
+.VPNavBarTitle .title { font-weight: 600; letter-spacing: -0.02em; }
+.VPHero { padding-top: 64px !important; }
+.VPHero .name {
+  font-size: clamp(3.5rem, 6vw, 5.5rem);
+  line-height: 1;
+  letter-spacing: -0.06em;
+  font-weight: 800;
+  background: linear-gradient(180deg, var(--vp-c-text-1), var(--vp-c-text-3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.VPHero .text {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  letter-spacing: -0.04em;
+  font-weight: 600;
+  color: var(--vp-c-text-2);
+  margin-top: 12px;
+}
+.VPHero .tagline {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--vp-c-text-2);
+  max-width: 680px;
+  margin: 24px auto 0;
+}
+
+/* Buttons (Vercel Style) */
+.VPButton.brand {
+  border-radius: 6px;
+  border: 1px solid var(--vp-c-brand-1) !important;
+  background: var(--vp-c-brand-1) !important;
+  color: var(--vp-c-bg) !important;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.VPButton.brand:hover {
+  background: transparent !important;
+  color: var(--vp-c-brand-1) !important;
+}
+.VPButton.alt {
+  border-radius: 6px;
+  border: 1px solid var(--vp-c-divider) !important;
+  background: transparent !important;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.VPButton.alt:hover {
+  border-color: var(--vp-c-text-1) !important;
+  color: var(--vp-c-text-1) !important;
+}
+
+/* Feature Cards */
 .VPFeature {
-  border: 1px solid rgba(15, 76, 92, 0.12);
-  background: var(--vb-panel-bg);
-}
-
-.dark .VPFeature {
-  background:
-    linear-gradient(180deg, rgba(26, 31, 36, 0.96), rgba(17, 20, 24, 0.96));
-}
-
-.vp-doc a {
-  text-underline-offset: 3px;
-}
-
-.vb-section {
-  margin: 48px 0;
-  padding: 28px;
   border: 1px solid var(--vb-panel-border);
-  border-radius: 22px;
-  background: var(--vb-panel-bg);
-  box-shadow: 0 22px 60px rgba(15, 76, 92, 0.08);
-}
-
-.dark .vb-section {
-  border-color: rgba(122, 162, 176, 0.16);
-  background:
-    linear-gradient(180deg, rgba(26, 31, 36, 0.96), rgba(17, 20, 24, 0.96));
+  border-radius: 12px !important;
+  background: var(--vb-panel) !important;
+  backdrop-filter: blur(12px);
   box-shadow: none;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.VPFeature:hover {
+  border-color: var(--vp-c-text-3);
+}
+.VPFeature .title { font-weight: 600; letter-spacing: -0.02em; }
+.VPFeature .details { color: var(--vp-c-text-2); line-height: 1.6; }
+.VPFeature code {
+  font-size: 0.85em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1);
 }
 
-.vb-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-  margin-top: 22px;
+/* Layout Shell */
+.vb-home-shell {
+  margin: 48px auto 96px;
+  max-width: 1152px;
+  padding: 0 24px;
 }
 
-.vb-card {
-  padding: 18px;
-  border-radius: 18px;
-  border: 1px solid var(--vb-panel-border);
-  background:
-    radial-gradient(circle at top right, rgba(201, 123, 52, 0.08), transparent 30%),
-    rgba(255, 255, 255, 0.78);
-}
-
-.dark .vb-card {
-  background:
-    radial-gradient(circle at top right, rgba(201, 123, 52, 0.12), transparent 30%),
-    rgba(20, 24, 28, 0.86);
-}
-
-.vb-card h3,
-.vb-section h2 {
-  letter-spacing: -0.02em;
-}
-
-.vb-code-frame {
-  margin-top: 22px;
-  padding: 22px;
-  border-radius: 20px;
-  border: 1px solid rgba(201, 123, 52, 0.18);
-  background-color: #0d1b20;
-  background-image: radial-gradient(circle at top left, rgba(201, 123, 52, 0.18), transparent 30%), var(--vb-grid-bg);
-  background-size: auto, 28px 28px;
-  overflow-x: auto;
-}
-
-.vb-code-frame pre,
-.vb-code-frame code {
-  margin: 0;
-  color: #eff7f8;
-}
-
-.vb-kicker {
-  display: inline-block;
-  margin-bottom: 10px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(201, 123, 52, 0.12);
-  color: #9c5519;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.dark .vb-kicker {
-  color: #f1b27a;
-}
-
-.vb-matrix {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 18px;
-}
-
-.vb-matrix th,
-.vb-matrix td {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--vb-panel-border);
-  text-align: left;
-  vertical-align: top;
-}
-
-.vb-copy-float {
-  position: fixed;
-  top: calc(var(--vp-nav-height) + 14px);
-  right: 20px;
-  z-index: 45;
+/* Vercel Announcement Pill */
+.vb-announce-wrapper {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  justify-content: center;
+  margin-bottom: 48px;
+  animation: vb-fade-up 400ms ease both;
 }
-
-.vb-copy-button {
-  border: 1px solid rgba(15, 76, 92, 0.18);
+.vb-announce-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px 6px 6px;
   border-radius: 999px;
-  padding: 9px 14px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #0f4c5c;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 10px 24px rgba(15, 76, 92, 0.12);
+  background: var(--vb-panel);
+  border: 1px solid var(--vb-panel-border);
+  backdrop-filter: blur(12px);
+  text-decoration: none !important;
+  transition: border-color 0.2s ease;
+}
+.vb-announce-pill:hover { border-color: var(--vp-c-text-3); }
+.vb-announce-badge {
+  background: var(--vp-c-brand-1);
+  color: var(--vp-c-bg);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.05em;
+}
+.vb-announce-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--vp-c-text-1);
+}
+.vb-announce-text span { color: var(--vp-c-text-3); transition: transform 0.2s ease; display: inline-block; }
+.vb-announce-pill:hover .vb-announce-text span { transform: translateX(4px); }
+
+/* Band Section */
+.vb-home-band, .vb-home-card, .vb-home-terminal {
+  border: 1px solid var(--vb-panel-border);
+  border-radius: 12px;
+  background: var(--vb-panel);
   backdrop-filter: blur(12px);
 }
+.vb-home-band { padding: 40px; animation: vb-fade-up 520ms ease both; }
+.vb-home-caption {
+  margin: 0 0 16px;
+  color: var(--vp-c-text-1);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.vb-home-lead {
+  max-width: 800px;
+  margin: 0;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--vp-c-text-2);
+}
+.vb-home-statbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 32px;
+  background: var(--vb-panel-border);
+  border: 1px solid var(--vb-panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.vb-home-stat { padding: 24px; background: var(--vp-c-bg-alt); }
+.vb-home-stat strong { display: block; margin-bottom: 8px; font-size: 1.25rem; letter-spacing: -0.03em; color: var(--vp-c-text-1); }
+.vb-home-stat span { font-size: 0.9rem; color: var(--vp-c-text-2); line-height: 1.5; display: block; }
 
-.dark .vb-copy-button {
-  background: rgba(20, 24, 28, 0.92);
-  color: #d9eef1;
-  border-color: rgba(122, 162, 176, 0.18);
-  box-shadow: none;
+/* Grid Cards */
+.vb-home-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin: 24px 0;
+}
+.vb-home-card { padding: 32px 24px; animation: vb-fade-up 620ms ease both; transition: border-color 0.2s ease; }
+.vb-home-card:hover { border-color: var(--vp-c-text-3); }
+.vb-home-card h3 { margin: 0 0 12px; font-size: 1.125rem; font-weight: 600; letter-spacing: -0.02em; color: var(--vp-c-text-1); }
+.vb-home-card p { margin: 0; color: var(--vp-c-text-2); line-height: 1.6; font-size: 0.95rem; }
+.vb-home-card code { font-size: 0.85em; padding: 2px 6px; border-radius: 4px; background: var(--vp-c-bg-soft); color: var(--vp-c-text-1); }
+
+/* Links Card Specifics */
+.vb-link-card ul { padding: 0; margin: 0; list-style: none; }
+.vb-link-card li { margin-bottom: 12px; }
+.vb-link-card li:last-child { margin-bottom: 0; }
+.vb-link-card a { color: var(--vp-c-text-2); text-decoration: none; font-size: 0.95rem; transition: color 0.2s ease; }
+.vb-link-card a:hover { color: var(--vp-c-text-1); }
+
+/* Terminal Block (Vercel Style) */
+.vb-home-terminal {
+  margin: 48px 0;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--vp-c-divider);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.1);
+  animation: vb-fade-up 720ms ease both;
+}
+.dark .vb-home-terminal { background: #0a0a0a; border-color: #333; }
+.vb-home-terminal-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: #111;
+  border-bottom: 1px solid #333;
+}
+.vb-home-terminal-dots { display: flex; gap: 6px; }
+.vb-home-terminal-dots span { width: 10px; height: 10px; border-radius: 50%; background: #333; }
+.vb-home-terminal-dots span:nth-child(1) { background: #ff5f56; }
+.vb-home-terminal-dots span:nth-child(2) { background: #ffbd2e; }
+.vb-home-terminal-dots span:nth-child(3) { background: #27c93f; }
+.vb-home-terminal-title {
+  margin: 0 auto;
+  font-size: 0.75rem;
+  font-family: var(--vp-font-family-mono);
+  color: #888;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.vb-home-terminal pre {
+  margin: 0;
+  padding: 24px;
+  overflow-x: auto;
+  background: transparent;
+  color: #ededed;
+}
+.vb-home-terminal code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.cmd-prompt { color: #888; user-select: none; margin-right: 8px; }
+.cmd-comment { color: #666; font-style: italic; }
+
+@keyframes vb-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.vb-copy-note {
-  font-size: 12px;
-  color: #7c4a20;
+@media (max-width: 960px) {
+  .vb-home-grid { grid-template-columns: 1fr; gap: 16px; }
+  .vb-home-statbar { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {
-  .vb-section {
-    padding: 20px;
-    border-radius: 18px;
-  }
-
-  .vb-code-frame {
-    padding: 16px;
-    border-radius: 16px;
-  }
-
-  .vb-copy-float {
-    top: calc(var(--vp-nav-height) + 10px);
-    right: 12px;
-  }
-
-  .vb-copy-button {
-    padding: 8px 12px;
-    font-size: 12px;
-  }
+  .VPHero { padding-top: 32px !important; }
+  .VPHero .name { font-size: 2.8rem; }
+  .VPHero .text { font-size: 1.8rem; }
+  .vb-announce-text { font-size: 0.75rem; }
+  .vb-home-band { padding: 24px; }
+  .vb-home-terminal pre { padding: 16px; }
 }

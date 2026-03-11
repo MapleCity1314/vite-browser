@@ -1,58 +1,63 @@
 # Overview
 
+## What is vite-browser?
+
+`vite-browser` is a runtime diagnostics CLI for Vite applications. It connects to a running Vite dev server and exposes framework state, HMR activity, error correlation, and propagation clues as structured terminal output.
+
+It is designed for two audiences:
+
+- **Developers** who want terminal-native insight into runtime failures without clicking through DevTools panels.
+- **AI coding agents** that need machine-readable signals to debug Vite apps step by step.
+
 ## Install
 
-The primary setup path is a single skill install command:
+**As an Agent Skill** (recommended):
 
 ```bash
 npx skills add MapleCity1314/vite-browser
 ```
 
-That installs the router skill plus the capability packs it routes into.
+This installs the skill router and the four capability packs it routes into. Your AI coding tool will automatically pick the right debugging workflow.
 
-Under the hood, the skill uses the `vite-browser` CLI as the execution layer, but the recommended product entrypoint is the skill router.
+**As a CLI tool**:
 
-## What vite-browser Does
+```bash
+npm install -g @presto1314w/vite-devtools-browser
+npx playwright install chromium
+```
 
-`vite-browser` is a skill-first runtime diagnostics surface for Vite apps.
+## What it does
 
-It helps you:
+When a Vite app breaks after a hot update, the error overlay tells you _what_ failed. `vite-browser` tells you _why_:
 
-- connect current errors to recent HMR activity
-- inspect framework runtime state
-- separate runtime failures from network/data failures
-- produce release smoke evidence before merge or release
+- **Error correlation** — Match the current error against recent HMR-updated modules within a configurable time window.
+- **Propagation diagnosis** — Trace `store → render → error` paths when a state change breaks a downstream component.
+- **HMR diagnosis** — Detect patterns like `missing-module`, `circular-dependency`, or `hmr-websocket-closed` with confidence levels.
+- **Framework inspection** — Query Vue component trees, Pinia stores, Vue Router, React props/hooks/state, or Svelte component trees.
+- **Mapped errors** — Source-mapped stack traces with optional inline source snippets.
 
-## Capability Map
+## Capability map
 
-### Core Debug
+`vite-browser` organizes its functionality into four focused packs. The skill router selects the right one based on the symptom:
 
-Use when the app is broken but the dominant failure mode is still broad or unclear.
+| Pack | When to use | First commands |
+|---|---|---|
+| [Core Debug](/capabilities/core-debug) | The app is broken but the failure mode is unclear | `errors`, `logs`, `vite runtime` |
+| [Runtime Diagnostics](/capabilities/runtime-diagnostics) | The issue appeared after an edit, hot update, or reload | `correlate errors`, `diagnose hmr`, `diagnose propagation` |
+| [Network Regression](/capabilities/network-regression) | Wrong data, failed requests, or auth/CORS issues | `network`, `logs`, `errors --mapped` |
+| [Release Smoke](/capabilities/release-smoke) | Final verification before merge or release | `detect`, `errors`, `network`, `vite runtime` |
 
-### Runtime Diagnostics
+## How it compares
 
-Use when the problem is tied to a recent edit, hot update, reload, import failure, or rerender propagation path.
+| Tool | Best for | Difference |
+|---|---|---|
+| `agent-browser` | General browser automation | No Vite runtime awareness |
+| `next-browser` | Next.js + React DevTools | Not a Vite tool |
+| `vite-plugin-vue-mcp` | Vue MCP integration | Requires plugin install, Vue only |
+| **`vite-browser`** | **Vite runtime diagnostics** | Zero-config, multi-framework, agent-native |
 
-### Network Regression
+## Next steps
 
-Use when the symptom is wrong data, failed requests, auth breakage, or response mismatch.
-
-### Release Smoke
-
-Use when you want a structured go/no-go pass before merge or release.
-
-## Best Practices For AI
-
-- Start from the router, not from all packs at once.
-- Prefer `errors --mapped --inline-source` as the first runtime read for live failures.
-- Use the dominant symptom to choose the capability pack.
-- Treat propagation output as high-confidence narrowing, not strict causal proof.
-- Keep conclusions conservative when the evidence chain is incomplete.
-
-## What To Read Next
-
-- [Core Debug](/capabilities/core-debug)
-- [Runtime Diagnostics](/capabilities/runtime-diagnostics)
-- [Network Regression](/capabilities/network-regression)
-- [Release Smoke](/capabilities/release-smoke)
-- [v0.3.3 release notes](/release-notes-0.3.3)
+- [Getting Started](/guide/getting-started) — Install and run your first session
+- [Agent Skills](/guide/agent-skills) — Understand the skill-first debugging model
+- [Workflows](/guide/workflows) — Common debugging recipes

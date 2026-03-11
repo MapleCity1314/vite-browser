@@ -1,56 +1,63 @@
 # CLI Reference
 
+Complete command reference for `vite-browser`.
+
 ## Browser
 
 ```bash
-vite-browser open <url> [--cookies-json <file>]
-vite-browser close
-vite-browser goto <url>
-vite-browser back
-vite-browser reload
+vite-browser open <url> [--cookies-json <file>]   # Launch browser and navigate
+vite-browser close                                 # Close browser and daemon
+vite-browser goto <url>                            # Navigate to URL
+vite-browser back                                  # Go back
+vite-browser reload                                # Reload page
 ```
 
 ## Framework
 
 ```bash
-vite-browser detect
-vite-browser vue tree [id]
-vite-browser vue pinia [store]
-vite-browser vue router
-vite-browser react tree [id]
-vite-browser svelte tree [id]
+vite-browser detect                   # Auto-detect Vue/React/Svelte
+vite-browser vue tree [id]            # Vue component tree
+vite-browser vue pinia [store]        # Pinia store state
+vite-browser vue router               # Vue Router state
+vite-browser react tree [id]          # React component tree
+vite-browser svelte tree [id]         # Svelte component tree
 ```
 
 ## Vite Runtime
 
 ```bash
-vite-browser vite restart
-vite-browser vite runtime
-vite-browser vite hmr
-vite-browser vite hmr trace [--limit <n>]
-vite-browser vite hmr clear
-vite-browser vite module-graph [--filter <txt>] [--limit <n>]
-vite-browser vite module-graph trace [--filter <txt>] [--limit <n>]
-vite-browser vite module-graph clear
-vite-browser errors
-vite-browser errors --mapped
-vite-browser errors --mapped --inline-source
-vite-browser correlate errors [--window <ms>]
-vite-browser correlate renders [--window <ms>]
-vite-browser diagnose hmr [--window <ms>] [--limit <n>]
-vite-browser diagnose propagation [--window <ms>]
+vite-browser vite restart                                    # Trigger full page reload
+vite-browser vite runtime                                    # Runtime status summary
+vite-browser vite hmr                                        # HMR summary
+vite-browser vite hmr trace [--limit <n>]                    # HMR event timeline
+vite-browser vite hmr clear                                  # Clear HMR history
+vite-browser vite module-graph [--filter <txt>] [--limit <n>]       # Module graph snapshot
+vite-browser vite module-graph trace [--filter <txt>] [--limit <n>] # Module graph trace
+vite-browser vite module-graph clear                         # Clear module graph history
+```
+
+## Errors & Diagnosis
+
+```bash
+vite-browser errors                                          # Raw errors
+vite-browser errors --mapped                                 # Source-mapped errors
+vite-browser errors --mapped --inline-source                 # With inline source snippets
+vite-browser correlate errors [--window <ms>]                # Error ↔ HMR correlation
+vite-browser correlate renders [--window <ms>]               # Render ↔ state correlation
+vite-browser diagnose hmr [--window <ms>] [--limit <n>]      # Rule-based HMR diagnosis
+vite-browser diagnose propagation [--window <ms>]            # Store→render→error diagnosis
 ```
 
 ## Utilities
 
 ```bash
-vite-browser logs
-vite-browser network [idx]
-vite-browser screenshot
-vite-browser eval <script>
+vite-browser logs                    # Console output
+vite-browser network [idx]           # Network requests (detail by index)
+vite-browser screenshot              # Capture page screenshot
+vite-browser eval <script>           # Execute JavaScript in page context
 ```
 
-## Common Workflows
+## Quick recipes
 
 ### Fast runtime triage
 
@@ -70,7 +77,7 @@ vite-browser vue pinia
 vite-browser vue tree
 ```
 
-### Network or state debugging
+### Network debugging
 
 ```bash
 vite-browser logs
@@ -78,8 +85,8 @@ vite-browser network
 vite-browser eval '<state probe>'
 ```
 
-## Output Expectations
+## Output notes
 
-- `errors --mapped --inline-source` is the best entry point when you need source context.
-- `correlate errors` compares current failures against recent HMR and runtime evidence within a time window.
-- `diagnose propagation` is conservative by design. It reports plausible `store -> render -> error` paths only when the evidence is strong enough.
+- `errors --mapped --inline-source` is the best starting point when source context matters.
+- `correlate errors` compares current failures against recent HMR events within the specified window.
+- `diagnose propagation` is conservative by design — it reports `store → render → error` paths only when evidence is strong enough.

@@ -1,38 +1,29 @@
 # AI IDE 配置
 
-这个页面给常见 coding agent 环境提供 `vite-browser` 的推荐接入方式。
+在你的 AI 编码环境中配置 `vite-browser`。
 
 ## Claude Code
 
-`vite-browser` 支持直接安装打包 skill：
+直接安装 skill：
 
 ```bash
 npx skills add MapleCity1314/vite-browser
 ```
 
-然后在仓库级 `CLAUDE.md` 里加一小段提示：
+然后在 `CLAUDE.md` 中加一段简短提示：
 
 ```md
 ## vite-browser
 
-When the task is about debugging a Vite app, recent HMR breakage, runtime errors
-after a hot update, wrong UI data, or release smoke validation, use the installed
-`vite-browser` skill router before inventing a generic debugging flow.
-
-Start from the router skill and follow the routed pack.
+调试 Vite 应用时 —— HMR 故障、热更新后的运行时错误、UI 数据异常或发布前验证 ——
+请使用已安装的 `vite-browser` skill 路由器。从路由器开始，按路由到的能力包执行。
 ```
-
-示例文件：
-
-- [examples/ai-ide/CLAUDE.md](https://github.com/MapleCity1314/vite-browser/blob/master/examples/ai-ide/CLAUDE.md)
 
 ## Codex
 
-基于当前 OpenAI Codex 文档，我这里采用的落地方式是：把 agent 指令放在 `AGENTS.md`，把可复用的 skill 内容直接随仓库一起提供，而不是依赖 Claude 专用的安装器。
+将 skills 提交进仓库，通过 `AGENTS.md` 路由：
 
-推荐目录：
-
-```text
+```
 AGENTS.md
 skills/
   SKILL.md
@@ -42,32 +33,27 @@ skills/
   vite-browser-release-smoke/
 ```
 
-在 `AGENTS.md` 里加入：
+在 `AGENTS.md` 中添加：
 
 ```md
 ## vite-browser
 
-When the task is about debugging a Vite app, runtime behavior after a recent edit,
-HMR or reload regressions, wrong data from the UI, or release smoke checks, use
-the checked-in `vite-browser` skills in `skills/`.
+For Vite debugging tasks — runtime errors, HMR regressions, wrong UI data,
+or release smoke — use the `vite-browser` skills in `skills/`.
 
 Routing:
 - Start with `skills/SKILL.md`
-- Use `vite-browser-runtime-diagnostics` for HMR, reload, module, or import failures
-- Use `vite-browser-network-regression` for request, auth, CORS, or payload issues
-- Use `vite-browser-release-smoke` for pre-merge or pre-release checks
-- Use `vite-browser-core-debug` only for broad first-pass triage
+- `vite-browser-runtime-diagnostics` for HMR, reload, module, or import failures
+- `vite-browser-network-regression` for request, auth, CORS, or payload issues
+- `vite-browser-release-smoke` for pre-merge or pre-release checks
+- `vite-browser-core-debug` for broad first-pass triage
 ```
-
-示例文件：
-
-- [examples/ai-ide/AGENTS.codex.md](https://github.com/MapleCity1314/vite-browser/blob/master/examples/ai-ide/AGENTS.codex.md)
 
 ## Cursor
 
-基于当前 Cursor 文档，Cursor 可以读 `AGENTS.md`，也支持 `.cursor/rules`。对 `vite-browser` 来说，最稳妥的方式仍然是把 `skills/` 一起放进仓库，再用一层轻量规则做路由。
+Cursor 同时支持 `AGENTS.md` 和 `.cursor/rules`。最简单的方式是把 `skills/` 提交进仓库，再加一条路由规则。
 
-如果你已经在用 `AGENTS.md`，可以直接复用 Codex 那段配置。如果团队更偏向 Cursor Rules，可以加：
+如果已经在用 `AGENTS.md`，直接复用上面 Codex 的配置。如果用 Cursor Rules：
 
 ```mdc
 ---
@@ -76,9 +62,8 @@ globs:
 alwaysApply: false
 ---
 
-When the task is about debugging a Vite app, recent hot-update breakage, runtime
-errors after a save, wrong UI data, auth failures, or release smoke validation,
-consult the repository's `skills/` directory and start with `skills/SKILL.md`.
+For Vite debugging tasks — HMR breakage, runtime errors, wrong UI data,
+auth failures, or release smoke — start with `skills/SKILL.md`.
 
 Routing:
 - `vite-browser-runtime-diagnostics` for HMR, reload, module, import, or websocket issues
@@ -87,14 +72,12 @@ Routing:
 - `vite-browser-core-debug` for broad first-pass diagnosis
 ```
 
-示例文件：
+## 总结
 
-- [examples/ai-ide/cursor-vite-browser.mdc](https://github.com/MapleCity1314/vite-browser/blob/master/examples/ai-ide/cursor-vite-browser.mdc)
+| 工具 | 配置方式 |
+|---|---|
+| Claude Code | `npx skills add` + `CLAUDE.md` 提示 |
+| Codex | 提交 `skills/` + `AGENTS.md` 路由 |
+| Cursor | 提交 `skills/` + `AGENTS.md` 或 `.cursor/rules` |
 
-## 实际建议
-
-- Claude Code：直接用打包安装命令
-- Codex：把 `skills/` 提交进仓库，并通过 `AGENTS.md` 路由
-- Cursor：把 `skills/` 提交进仓库，并通过 `AGENTS.md` 或 `.cursor/rules` 路由
-
-这样你只需要维护一份 skill 内容，工具差异只留在最外层配置。
+一套 skill 布局、一层路由指令、一条终端执行链路。

@@ -1,41 +1,25 @@
 # Getting Started
 
-## Recommended Setup Order
-
-For most users, the right order is:
-
-1. install or check in the `vite-browser` skill router
-2. add a small AI IDE routing config
-3. keep the raw CLI available as the lower-level execution layer
-
-If you have not done step 1 yet, start with:
-
-- [Agent Skills](/guide/agent-skills)
-- [AI IDE Setup](/guide/ide-setup)
-
-## Requirements
+## Prerequisites
 
 - Node.js `>=20`
-- Chromium installed through Playwright
+- Chromium via Playwright
 - A running Vite dev server
 
-## Skill-First Quickstart
+## Quick setup
 
-### Claude Code
+### Option 1: Agent Skill (recommended)
+
+Install the skill router — your AI coding tool will automatically route into the right debugging workflow:
 
 ```bash
+# Claude Code
 npx skills add MapleCity1314/vite-browser
 ```
 
-Then add the repo hint from [AI IDE Setup](/guide/ide-setup#claude-code) to `CLAUDE.md`.
+For Codex or Cursor, check `skills/` into your repo and add a routing snippet. See [AI IDE Setup](/guide/ide-setup) for details.
 
-### Codex Or Cursor
-
-Check `skills/` into the repo and add the routing snippet from [AI IDE Setup](/guide/ide-setup).
-
-## CLI Layer
-
-Install the CLI runtime used by the skills:
+### Option 2: CLI only
 
 ```bash
 npm install -g @presto1314w/vite-devtools-browser
@@ -48,27 +32,37 @@ Or run without a global install:
 npx @presto1314w/vite-devtools-browser open http://localhost:5173
 ```
 
-## First Manual Session
+## Your first session
 
 Start your app in one terminal:
 
 ```bash
-cd my-app
-npm run dev
+cd my-app && npm run dev
 ```
 
-Then connect `vite-browser` in another terminal:
+Connect `vite-browser` in another:
 
 ```bash
+# 1. Open the browser and navigate to your app
 vite-browser open http://localhost:5173
+
+# 2. Detect which framework is running
 vite-browser detect
+
+# 3. Check the Vite runtime state
 vite-browser vite runtime
+
+# 4. See current errors with source context
 vite-browser errors --mapped --inline-source
+
+# 5. Correlate with recent HMR activity
 vite-browser correlate errors --mapped --window 5000
+
+# 6. Done — close the browser
 vite-browser close
 ```
 
-## Recommended Triage Paths
+## Common triage paths
 
 ### HMR break after save
 
@@ -78,24 +72,24 @@ vite-browser correlate errors --mapped --window 5000
 vite-browser diagnose hmr --limit 50
 ```
 
-### Store-driven rerender failure
+### Store-driven render failure
 
 ```bash
 vite-browser correlate renders --window 5000
 vite-browser diagnose propagation --window 5000
 vite-browser vue pinia
-vite-browser vue tree
 ```
 
-### Runtime or API issue
+### API or data issue
 
 ```bash
+vite-browser errors --mapped
 vite-browser logs
 vite-browser network
-vite-browser errors --mapped
 ```
 
-## Notes
+## What's next
 
-- `correlate renders` and `diagnose propagation` are designed as high-confidence narrowing, not strict causal proof.
-- Vue runtime inspection is currently the deepest path. React and Svelte inspection are available, but cross-framework propagation coverage is still expanding.
+- [Concepts](/guide/concepts) — Understand the product model and confidence levels
+- [Agent Skills](/guide/agent-skills) — Learn the skill-first debugging approach
+- [Workflows](/guide/workflows) — Detailed debugging recipes

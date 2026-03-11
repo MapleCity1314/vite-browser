@@ -1,74 +1,68 @@
 # 快速开始
 
-## 推荐顺序
-
-对大多数用户，正确顺序应该是：
-
-1. 先安装或接入 `vite-browser` skill router
-2. 给 AI IDE 补一层很薄的路由配置
-3. 把原始 CLI 作为底层执行层保留
-
-如果你还没做第 1 步，先看：
-
-- [Agent Skills](/zh/guide/agent-skills)
-- [AI IDE 配置](/zh/guide/ide-setup)
-
 ## 环境要求
 
 - Node.js `>=20`
-- 已通过 Playwright 安装 Chromium
+- 通过 Playwright 安装的 Chromium
 - 一个正在运行的 Vite dev server
 
-## Skill First 快速接入
+## 安装
 
-### Claude Code
+### 方式一：Agent Skill（推荐）
+
+安装 skill 路由器，AI 编码工具会自动选择正确的调试工作流：
 
 ```bash
+# Claude Code
 npx skills add MapleCity1314/vite-browser
 ```
 
-然后把 [AI IDE 配置](/zh/guide/ide-setup#claude-code) 里的 `CLAUDE.md` 提示加进去。
+Codex 或 Cursor 的配置方式见 [AI IDE 配置](/zh/guide/ide-setup)。
 
-### Codex 或 Cursor
-
-把 `skills/` 提交进仓库，再加上 [AI IDE 配置](/zh/guide/ide-setup) 里的路由片段。
-
-## CLI 层
-
-skills 底层依赖的 CLI 安装方式：
+### 方式二：仅 CLI
 
 ```bash
 npm install -g @presto1314w/vite-devtools-browser
 npx playwright install chromium
 ```
 
-如果你不想全局安装，也可以直接跑：
+也可以不全局安装，直接运行：
 
 ```bash
 npx @presto1314w/vite-devtools-browser open http://localhost:5173
 ```
 
-## 第一次手动会话
+## 第一次使用
 
-先在一个终端启动你的应用：
+在一个终端启动你的应用：
 
 ```bash
-cd my-app
-npm run dev
+cd my-app && npm run dev
 ```
 
-再在另一个终端连接 `vite-browser`：
+在另一个终端连接 `vite-browser`：
 
 ```bash
+# 1. 打开浏览器，导航到应用
 vite-browser open http://localhost:5173
+
+# 2. 检测正在运行的框架
 vite-browser detect
+
+# 3. 查看 Vite 运行时状态
 vite-browser vite runtime
+
+# 4. 查看当前错误（带源码上下文）
 vite-browser errors --mapped --inline-source
+
+# 5. 与最近的 HMR 活动关联
 vite-browser correlate errors --mapped --window 5000
+
+# 6. 完成 — 关闭浏览器
 vite-browser close
 ```
 
-## 推荐排查路径
+## 常见排查路径
 
 ### 保存文件后 HMR 触发，页面坏了
 
@@ -78,24 +72,24 @@ vite-browser correlate errors --mapped --window 5000
 vite-browser diagnose hmr --limit 50
 ```
 
-### 怀疑是 store 驱动的重渲染问题
+### 怀疑是 store 驱动的渲染问题
 
 ```bash
 vite-browser correlate renders --window 5000
 vite-browser diagnose propagation --window 5000
 vite-browser vue pinia
-vite-browser vue tree
 ```
 
-### 怀疑是运行时或接口问题
+### 接口或数据问题
 
 ```bash
+vite-browser errors --mapped
 vite-browser logs
 vite-browser network
-vite-browser errors --mapped
 ```
 
-## 说明
+## 接下来
 
-- `correlate renders` 和 `diagnose propagation` 更适合看作高置信度缩小范围，而不是严格因果证明。
-- 目前 Vue 运行时排查路径最完整；React 和 Svelte 也支持检查，但跨框架传播分析还在继续扩展。
+- [核心概念](/zh/guide/concepts) —— 了解产品模型和置信度体系
+- [Agent Skills](/zh/guide/agent-skills) —— 了解 skill-first 调试方式
+- [排查工作流](/zh/guide/workflows) —— 详细的调试流程

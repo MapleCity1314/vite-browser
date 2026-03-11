@@ -1,67 +1,62 @@
-# Signals and Confidence
+# Signals & Confidence
 
-## Signal Types
+How to read `vite-browser` diagnostic output.
+
+## Signal types
 
 `vite-browser` combines several classes of runtime evidence:
 
-- HMR timeline data
-- module graph snapshots and traces
-- current browser/runtime errors
-- framework component inspection
-- store-side changes and changed keys
-- logs, network entries, and page-side eval results
+| Signal | Example commands | Weight |
+|---|---|---|
+| Current errors | `errors --mapped` | Strong anchor |
+| Recent HMR updates | `vite hmr trace` | Strong when fresh |
+| Module graph changes | `vite module-graph trace` | Good for dependency issues |
+| Framework state | `vue tree`, `react tree` | Good for state bugs |
+| Store changes | `vue pinia` | Timing-sensitive |
+| Logs & network | `logs`, `network` | Supporting evidence |
 
-These do not all have the same weight. Current errors and recent HMR updates are often the strongest anchor points. Render-path or store-path clues are valuable, but usually more timing-sensitive.
+Current errors and recent HMR updates are usually the strongest anchor points. Render-path and store-path clues are valuable but more timing-sensitive.
 
-## Reading Correlation Output
+## Reading correlation output
 
 ### `correlate errors`
 
-Use this when the current question is:
+Answers: _Which recent update most likely matches the error I see right now?_
 
-```text
-Which recent update most likely matches the error I see right now?
-```
-
-This command is strongest when:
-
-- the repro happened recently
-- the current stack is still visible
-- the module update window is narrow
+Strongest when:
+- The repro just happened
+- The current error stack is still visible
+- The module update window is narrow
 
 ### `correlate renders`
 
-Use this when the current question is:
+Answers: _Did a recent state or module change plausibly flow into this render path?_
 
-```text
-Did a recent state or module change plausibly flow into this rerender path?
-```
-
-This output should be read as narrowing evidence, not a strict replay of framework internals.
+Read as narrowing evidence, not a strict replay of framework internals.
 
 ### `diagnose propagation`
 
-Use this when you want a rule-based summary across the available store, render, and error evidence.
+Provides a rule-based summary across available store, render, and error evidence.
 
-It is designed to stay conservative when the evidence chain is incomplete.
+Designed to stay conservative when the evidence chain is incomplete.
 
-## Confidence Guidance
+## Confidence levels
 
 ### High confidence
 
-Treat this as a strong debugging lead. It still is not mathematical proof, but it is usually enough to prioritize the next file or repro step.
+A strong debugging lead. Not mathematical proof, but usually enough to prioritize the next file or repro step.
 
-### Medium or plausible
+### Medium / plausible
 
-Treat this as directional. It is often enough to narrow a suspect set, but not enough to claim the root cause.
+Directional — enough to narrow a suspect set, not enough to claim root cause.
 
-### Weak or absent evidence
+### Weak or absent
 
-Treat this as a sign to gather a fresher repro, reduce the event window, or inspect adjacent signals like logs or network state.
+Gather a fresher repro, reduce the event window, or inspect adjacent signals like logs or network state.
 
-## Best Practices
+## Best practices
 
-- start with `errors --mapped --inline-source` when source context matters
-- use short windows like `5000` ms for live repro loops
-- re-run commands after reload or navigation so the runtime view stays current
-- let the strongest signal drive the next step instead of running every command every time
+- Start with `errors --mapped --inline-source` when source context matters
+- Use short windows (`5000` ms) for live repro loops
+- Re-run commands after reload or navigation to keep the view current
+- Let the strongest signal drive the next step

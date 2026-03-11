@@ -1,68 +1,68 @@
 # Agent Skills
 
-## 为什么文档现在先讲 Skill
+## 什么是 Agent Skills？
 
-`vite-browser` 现在推荐的使用方式，不再是“先背 CLI 命令，再手动组合”。
+Agent Skills 是打包好的调试工作流，AI 编码工具（Claude Code、Codex、Cursor）可以自动遵循。不需要 agent 每次都临时发明一套调试流程 —— skill 已经编码了正确的步骤、正确的顺序和正确的路由逻辑。
 
-主路径应该是：
+`vite-browser` 采用 skill-first 的设计 —— CLI 提供原始命令，而 skill 路由器提供智能层，决定_运行哪些命令_以及_什么时候运行_。
 
-1. 先安装或接入 `vite-browser` skill router
-2. 让 agent 根据问题类型路由到对应 skill pack
-3. 只有在你需要更细粒度控制时，才直接落到原始 CLI
+## 为什么这很重要
 
-这样更符合真实 coding agent 的工作方式，因为第一个关键决策已经被编码进 router 里了：
+没有 skill 路由器时，AI agent 在调试 Vite 应用故障时通常会：
 
-- 症状还很泛 -> `core-debug`
-- 最近编辑或 HMR 后坏了 -> `runtime-diagnostics`
-- 数据错了或请求失败 -> `network-regression`
-- 发版前做最终验证 -> `release-smoke`
+- 一开始就跑太多命令
+- 把网络证据和运行时证据混在一起
+- 过度解读薄弱的证据
+- 完全跳过第一步的路由决策
 
-## 安装 Skill Router
+Skill 路由器通过编码一棵决策树来解决这些问题：
 
-对支持打包 skill 安装的工具，直接执行：
+| 症状 | 路由到 |
+|---|---|
+| 故障类型还不清楚 | `core-debug` |
+| 最近编辑或 HMR 后出问题 | `runtime-diagnostics` |
+| 数据错误或请求失败 | `network-regression` |
+| 合并/发布前验证 | `release-smoke` |
+
+## 安装
 
 ```bash
+# Claude Code
 npx skills add MapleCity1314/vite-browser
 ```
 
-它会提供 router skill 以及它预期的 skill pack 布局。
+这会安装路由器和四个聚焦的能力包：
 
-## 会接入哪些 Skill
-
-router 在这里：
-
-```text
-skills/SKILL.md
 ```
-
-它会路由到四个 pack：
-
-```text
+skills/SKILL.md                              ← 路由器
 skills/vite-browser-core-debug/SKILL.md
 skills/vite-browser-runtime-diagnostics/SKILL.md
 skills/vite-browser-network-regression/SKILL.md
 skills/vite-browser-release-smoke/SKILL.md
 ```
 
-## 推荐的 Agent 流程
+## Agent 的使用方式
 
-当用户说这些话时：
+当用户这样说时：
 
-- “热更新后页面坏了”
-- “最近哪次更新导致了这个错误”
-- “UI 数据不对”
-- “发版前帮我做一次 smoke check”
+- _"热更新后页面坏了"_
+- _"最近哪次改动导致了这个错误？"_
+- _"UI 显示的数据不对"_
+- _"发版前帮我跑一下 smoke check"_
 
-agent 应该先从 router skill 开始，而不是临时拼一套随意的排查流程。
+agent 会读取路由器 skill，选择匹配的能力包，然后按照结构化的工作流执行 —— 而不是凭猜测。
 
 ## 什么时候直接用 CLI
 
-CLI 仍然重要，但它现在是底层接口。
+CLI 是更底层的接口，适合以下情况：
 
-这些情况可以直接用它：
+- 你想手动检查某一个信号
+- 你在验证某一条命令的输出
+- 你的环境不支持打包 skill 安装
 
-- 你只想人工检查某一个信号
-- 你在验证单条命令输出
-- 你的环境还不支持 skill 安装，需要先用纯终端方式跑通
+其他情况下，从 skill 路由器开始。
 
-下一步看：[AI IDE 配置](/zh/guide/ide-setup)
+## 接下来
+
+- [AI IDE 配置](/zh/guide/ide-setup) —— 配置 Claude Code、Codex 或 Cursor
+- [Skill Pack 说明](/zh/reference/skill-packs) —— 详细的能力包参考

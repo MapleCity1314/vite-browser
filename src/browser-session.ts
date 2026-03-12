@@ -1,17 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
 import { chromium, type BrowserContext, type Page } from "playwright";
 import type { ReactNode } from "./react/devtools.js";
+import { getHookSource } from "./react/hook-manager.js";
 import { isWindows, isLinux } from "./paths.js";
-
-const extensionPath =
-  process.env.REACT_DEVTOOLS_EXTENSION ??
-  resolve(import.meta.dirname, "../../next-browser/extensions/react-devtools-chrome");
-
-const hasReactExtension = existsSync(join(extensionPath, "manifest.json"));
-const installHook = hasReactExtension
-  ? readFileSync(join(extensionPath, "build", "installHook.js"), "utf-8")
-  : null;
 
 export type BrowserFramework = "vue" | "react" | "svelte" | "unknown";
 export type HmrEventType = "connecting" | "connected" | "update" | "full-reload" | "error" | "log";
@@ -28,7 +18,6 @@ export type BrowserSessionState = {
   context: BrowserContext | null;
   page: Page | null;
   framework: BrowserFramework;
-  extensionModeDisabled: boolean;
   collectorInstalled: boolean;
   consoleLogs: string[];
   hmrEvents: HmrEvent[];
@@ -42,7 +31,6 @@ export function createBrowserSessionState(): BrowserSessionState {
     context: null,
     page: null,
     framework: "unknown",
-    extensionModeDisabled: false,
     collectorInstalled: false,
     consoleLogs: [],
     hmrEvents: [],
@@ -76,9 +64,7 @@ export async function ensureBrowserPage(
 ): Promise<Page> {
   if (!contextUsable(state.context)) {
     await closeBrowserSession(state);
-    const launched = await launchBrowserContext(state.extensionModeDisabled);
-    state.context = launched.context;
-    state.extensionModeDisabled = launched.extensionModeDisabled;
+    state.context = await launchBrowserContext();
   }
 
   if (!state.context) throw new Error("browser not open");
@@ -89,10 +75,7 @@ export async function ensureBrowserPage(
     } catch (error) {
       if (!isClosedTargetError(error)) throw error;
       await closeBrowserSession(state);
-      state.extensionModeDisabled = true;
-      const launched = await launchBrowserContext(state.extensionModeDisabled);
-      state.context = launched.context;
-      state.extensionModeDisabled = launched.extensionModeDisabled;
+      state.context = await launchBrowserContext();
       state.page = state.context.pages()[0] ?? (await state.context.newPage());
     }
     onPageReady(state.page);
@@ -143,33 +126,16 @@ export function platformChromiumArgs(extra: string[] = []): string[] {
   return args;
 }
 
-async function launchBrowserContext(
-  extensionModeDisabled: boolean,
-): Promise<{ context: BrowserContext; extensionModeDisabled: boolean }> {
-  if (hasReactExtension && installHook && !extensionModeDisabled) {
-    try {
-      const context = await chromium.launchPersistentContext("", {
-        headless: false,
-        viewport: { width: 1280, height: 720 },
-        args: platformChromiumArgs([
-          `--disable-extensions-except=${extensionPath}`,
-          `--load-extension=${extensionPath}`,
-        ]),
-      });
-      await context.waitForEvent("serviceworker").catch(() => {});
-      await context.addInitScript(installHook);
-      return { context, extensionModeDisabled };
-    } catch {
-      extensionModeDisabled = true;
-    }
-  }
-
+async function launchBrowserContext(): Promise<BrowserContext> {
   const browser = await chromium.launch({
     headless: false,
     args: platformChromiumArgs(),
   });
-  return {
-    context: await browser.newContext({ viewport: { width: 1280, height: 720 } }),
-    extensionModeDisabled,
-  };
+
+  const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+
+  // Inject bundled React DevTools hook before any page loads
+  await context.addInitScript(getHookSource());
+
+  return context;
 }

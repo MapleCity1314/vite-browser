@@ -4,6 +4,7 @@
     "sourceMap": false,
     "declarationMap": false,
     "noEmit": false,
-    "allowImportingTsExtensions": false
+    "allowImportingTsExtensions": false,
+    "allowJs": true
   }
 }

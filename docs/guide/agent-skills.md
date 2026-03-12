@@ -62,6 +62,18 @@ The CLI is the lower-level interface. Use it directly when:
 
 For everything else, start from the skill router.
 
+## React-specific routing (v0.3.5+)
+
+When the failing app is a React application, the same four-pack routing applies. After landing in the right pack, React-specific commands are available:
+
+```bash
+vite-browser react store list          # discover Zustand stores
+vite-browser react store inspect <n>   # inspect store state
+vite-browser react renders             # render events with phase and duration
+```
+
+No configuration is required. The React DevTools hook is bundled and injected automatically.
+
 ## Next steps
 
 - [AI IDE Setup](/guide/ide-setup) — Configure Claude Code, Codex, or Cursor

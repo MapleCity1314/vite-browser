@@ -34,3 +34,17 @@ Without the router, agents tend to:
 - Skip the routing decision entirely
 
 The pack split prevents this by encoding the first decision into the workflow.
+
+## React-specific commands (v0.3.5+)
+
+When debugging a React application, the following commands are available in addition to the core set:
+
+| Command | What it does |
+|---|---|
+| `react store list` | List all detected Zustand stores in the page |
+| `react store inspect <n>` | Print current state of store `n` |
+| `react renders` | Show recent render events with phase, duration, and slow flag |
+
+The React DevTools hook is injected automatically — no extension or environment variable is needed.
+
+Use these inside `runtime-diagnostics` when the symptom involves React state or rendering.

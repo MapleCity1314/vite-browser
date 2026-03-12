@@ -54,3 +54,9 @@ export const useCartStore = create<CartStore>((set, get) => ({
     return state.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   },
 }));
+
+// Register store for vite-browser diagnostics
+if (typeof window !== "undefined") {
+  (window as any).__ZUSTAND_STORES__ = (window as any).__ZUSTAND_STORES__ || {};
+  (window as any).__ZUSTAND_STORES__.cart = useCartStore;
+}

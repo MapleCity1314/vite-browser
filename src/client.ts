@@ -3,7 +3,7 @@ import { readFileSync, existsSync, rmSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { socketPath, pidFile } from "./paths.js";
+import { socketPath, pidFile, isWindows } from "./paths.js";
 
 export type Response = { ok: true; data?: unknown } | { ok: false; error: string };
 export type ClientDeps = {
@@ -112,6 +112,6 @@ export function removeSocketFile(
   path: string,
   removeFile: typeof rmSync = rmSync,
 ) {
-  if (process.platform === "win32") return;
+  if (isWindows) return;
   removeFile(path, { force: true });
 }

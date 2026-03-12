@@ -8,7 +8,7 @@ import { correlateErrorWithHMR, formatErrorCorrelationReport } from "./correlate
 import { diagnoseHMR, formatDiagnosisReport } from "./diagnose.js";
 import { diagnosePropagation, formatPropagationDiagnosisReport } from "./diagnose-propagation.js";
 import { extractModules } from "./event-analysis.js";
-import { socketDir, socketPath, pidFile } from "./paths.js";
+import { isWindows, socketDir, socketPath, pidFile } from "./paths.js";
 import { correlateRenderPropagation, formatPropagationTraceReport } from "./trace.js";
 import type { PropagationTrace } from "./trace.js";
 import { EventQueue } from "./event-queue.js";
@@ -407,7 +407,7 @@ export function startDaemon() {
 
 function removeSocketFile() {
   // Windows named pipes are not filesystem entries, so unlinking them fails with EPERM.
-  if (process.platform === "win32") return;
+  if (isWindows) return;
   rmSync(socketPath, { force: true });
 }
 

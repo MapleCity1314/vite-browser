@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { chromium, type BrowserContext, type Page } from "playwright";
 import type { ReactNode } from "./react/devtools.js";
+import { isWindows } from "./paths.js";
 
 const extensionPath =
   process.env.REACT_DEVTOOLS_EXTENSION ??
@@ -120,6 +121,28 @@ export function isClosedTargetError(error: unknown): boolean {
   return /Target page, context or browser has been closed/i.test(error.message);
 }
 
+/**
+ * Build platform-aware Chromium launch arguments.
+ *
+ * On Linux (especially Docker / CI without a display server) we add
+ * `--no-sandbox` and `--disable-dev-shm-usage` so that Chromium can
+ * start reliably in headless-shell containers.
+ *
+ * On Windows, `--disable-gpu` is added to work around occasional GPU
+ * process crashes on older drivers.
+ */
+export function platformChromiumArgs(extra: string[] = []): string[] {
+  const args = ["--auto-open-devtools-for-tabs", ...extra];
+
+  if (process.platform === "linux") {
+    args.push("--no-sandbox", "--disable-dev-shm-usage");
+  } else if (isWindows) {
+    args.push("--disable-gpu");
+  }
+
+  return args;
+}
+
 async function launchBrowserContext(
   extensionModeDisabled: boolean,
 ): Promise<{ context: BrowserContext; extensionModeDisabled: boolean }> {
@@ -128,11 +151,10 @@ async function launchBrowserContext(
       const context = await chromium.launchPersistentContext("", {
         headless: false,
         viewport: { width: 1280, height: 720 },
-        args: [
+        args: platformChromiumArgs([
           `--disable-extensions-except=${extensionPath}`,
           `--load-extension=${extensionPath}`,
-          "--auto-open-devtools-for-tabs",
-        ],
+        ]),
       });
       await context.waitForEvent("serviceworker").catch(() => {});
       await context.addInitScript(installHook);
@@ -144,7 +166,7 @@ async function launchBrowserContext(
 
   const browser = await chromium.launch({
     headless: false,
-    args: ["--auto-open-devtools-for-tabs"],
+    args: platformChromiumArgs(),
   });
   return {
     context: await browser.newContext({ viewport: { width: 1280, height: 720 } }),

@@ -17,3 +17,9 @@ CLAUDE.md
 
 version-docs/*
 demo-gif/
+
+# Test fixtures
+test/fixtures/*/node_modules/
+test/fixtures/*/dist/
+test/fixtures/*/.vite/
+test/fixtures/*/pnpm-lock.yaml

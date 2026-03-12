@@ -1,0 +1,40 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Extract release notes
+        id: notes
+        run: |
+          if [ -f "docs/release-notes-${{ steps.version.outputs.VERSION }}.md" ]; then
+            echo "NOTES_FILE=docs/release-notes-${{ steps.version.outputs.VERSION }}.md" >> $GITHUB_OUTPUT
+          else
+            echo "NOTES_FILE=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.version.outputs.VERSION }}
+          body_path: ${{ steps.notes.outputs.NOTES_FILE }}
+          draft: false
+          prerelease: false
+          generate_release_notes: ${{ steps.notes.outputs.NOTES_FILE == '' }}

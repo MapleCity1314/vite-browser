@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { chromium, type BrowserContext, type Page } from "playwright";
 import type { ReactNode } from "./react/devtools.js";
-import { isWindows } from "./paths.js";
+import { isWindows, isLinux } from "./paths.js";
 
 const extensionPath =
   process.env.REACT_DEVTOOLS_EXTENSION ??
@@ -134,7 +134,7 @@ export function isClosedTargetError(error: unknown): boolean {
 export function platformChromiumArgs(extra: string[] = []): string[] {
   const args = ["--auto-open-devtools-for-tabs", ...extra];
 
-  if (process.platform === "linux") {
+  if (isLinux) {
     args.push("--no-sandbox", "--disable-dev-shm-usage");
   } else if (isWindows) {
     args.push("--disable-gpu");

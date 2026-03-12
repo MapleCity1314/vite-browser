@@ -14,7 +14,7 @@ export interface VueComponent {
   line?: number;
 }
 
-export function formatComponentTree(apps: any[]): string {
+export function formatComponentTree(apps: any[], maxDepth = 50): string {
   if (apps.length === 0) return "No Vue apps found";
 
   const output: string[] = [];
@@ -36,12 +36,18 @@ export function formatComponentTree(apps: any[]): string {
     const visit = (instance: any, depth = 0) => {
       if (!instance || typeof instance !== "object") return;
       if (seen.has(instance)) return;
+      if (depth > maxDepth) {
+        output.push(`${"  ".repeat(depth)}[max depth reached]`);
+        return;
+      }
       seen.add(instance);
 
       const indent = "  ".repeat(depth);
       const name = instance.type?.name || instance.type?.__name || "Anonymous";
       const uid = instance.uid ?? "?";
-      output.push(`${indent}[${uid}] ${name}`);
+      const file = instance.type?.__file;
+      const fileSuffix = file ? ` [${file}]` : "";
+      output.push(`${indent}[${uid}] ${name}${fileSuffix}`);
 
       const subTree = instance.subTree;
       if (subTree?.component) visit(subTree.component, depth + 1);
@@ -193,6 +199,8 @@ export function formatPiniaStores(
   else if (rawGetters instanceof Set) getterNames.push(...Array.from(rawGetters).map(String));
   else if (rawGetters && typeof rawGetters === "object") getterNames.push(...Object.keys(rawGetters));
 
+  const getterSet = new Set(getterNames);
+
   if (getterNames.length > 0) {
     output.push("## Getters");
     for (const key of getterNames) {
@@ -201,6 +209,24 @@ export function formatPiniaStores(
       } catch {
         output.push(`  ${key}: [Error]`);
       }
+    }
+    output.push("");
+  }
+
+  // List actions (own functions on the store, excluding $ prefixed internals)
+  const actionNames: string[] = [];
+  if (store && typeof store === "object") {
+    for (const key of Object.keys(store)) {
+      if (key.startsWith("$") || key.startsWith("_")) continue;
+      if (typeof store[key] === "function" && !getterSet.has(key)) {
+        actionNames.push(key);
+      }
+    }
+  }
+  if (actionNames.length > 0) {
+    output.push("## Actions");
+    for (const key of actionNames) {
+      output.push(`  ${key}()`);
     }
     output.push("");
   }
@@ -225,6 +251,16 @@ export function formatRouterInfo(actualRouter: any): string {
     if (currentRoute.query && Object.keys(currentRoute.query).length > 0) {
       output.push(`  Query: ${JSON.stringify(currentRoute.query)}`);
     }
+    if (currentRoute.hash) {
+      output.push(`  Hash: ${currentRoute.hash}`);
+    }
+    if (currentRoute.meta && Object.keys(currentRoute.meta).length > 0) {
+      output.push(`  Meta: ${JSON.stringify(currentRoute.meta)}`);
+    }
+    const matched = currentRoute.matched;
+    if (Array.isArray(matched) && matched.length > 1) {
+      output.push(`  Matched: ${matched.map((r: any) => r.path || r.name).join(" > ")}`);
+    }
     output.push("");
   }
 
@@ -233,7 +269,10 @@ export function formatRouterInfo(actualRouter: any): string {
     output.push("## All Routes");
     routes.forEach((route: any) => {
       const routeName = route.name ? ` (${route.name})` : "";
-      output.push(`  ${route.path}${routeName}`);
+      const meta = route.meta && Object.keys(route.meta).length > 0
+        ? ` meta=${JSON.stringify(route.meta)}`
+        : "";
+      output.push(`  ${route.path}${routeName}${meta}`);
     });
   }
 

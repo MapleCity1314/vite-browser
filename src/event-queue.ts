@@ -67,16 +67,61 @@ export class EventQueue {
     if (this.events.length > this.maxSize) {
       this.events.shift();
     }
+
+    // Maintain sorted order by timestamp.  Events almost always arrive
+    // in order, so the fast path (no swap) costs a single comparison.
+    const len = this.events.length;
+    if (len >= 2 && this.events[len - 1].timestamp < this.events[len - 2].timestamp) {
+      this._insertionSort(len - 1);
+    }
+  }
+
+  /** Bubble the element at `idx` leftward to restore sorted order. */
+  private _insertionSort(idx: number): void {
+    const events = this.events;
+    const item = events[idx];
+    let j = idx - 1;
+    while (j >= 0 && events[j].timestamp > item.timestamp) {
+      events[j + 1] = events[j];
+      j--;
+    }
+    events[j + 1] = item;
   }
 
   /**
-   * Return all events within the last `ms` milliseconds before `before`
+   * Return all events within the last `ms` milliseconds before `before`.
+   *
+   * Uses binary search to find the start index (O(log n)) then slices,
+   * which is significantly faster than a full linear scan for large queues.
+   * Events are maintained in insertion order, which for timestamped pushes
+   * is monotonically non-decreasing.
    */
   window(ms: number, before = Date.now()): VBEvent[] {
     const start = before - ms;
-    return this.events.filter(
-      (e) => e.timestamp >= start && e.timestamp <= before
-    );
+    const events = this.events;
+    const len = events.length;
+    if (len === 0) return [];
+
+    // Binary search for the first event with timestamp >= start
+    let lo = 0;
+    let hi = len;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (events[mid].timestamp < start) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+
+    // Linear scan from lo for events <= before
+    // (in practice, `before` is usually Date.now() so most events qualify)
+    const result: VBEvent[] = [];
+    for (let i = lo; i < len; i++) {
+      if (events[i].timestamp > before) break;
+      result.push(events[i]);
+    }
+    return result;
   }
 
   /**
@@ -88,6 +133,11 @@ export class EventQueue {
 
   all(): VBEvent[] {
     return [...this.events];
+  }
+
+  /** Number of events currently stored */
+  get size(): number {
+    return this.events.length;
   }
 
   clear(): void {

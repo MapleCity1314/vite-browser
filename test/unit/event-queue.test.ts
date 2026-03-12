@@ -121,4 +121,46 @@ describe('EventQueue', () => {
     const events = queue.all();
     expect(events[0].payload).toEqual(payload);
   });
+
+  test('size returns the current event count', () => {
+    expect(queue.size).toBe(0);
+    queue.push({ timestamp: 1000, type: 'hmr-update', payload: {} });
+    expect(queue.size).toBe(1);
+    queue.push({ timestamp: 2000, type: 'error', payload: {} });
+    expect(queue.size).toBe(2);
+    queue.clear();
+    expect(queue.size).toBe(0);
+  });
+
+  test('binary search window matches linear scan for large queues', () => {
+    const bigQueue = new EventQueue(2000);
+    const baseTime = 100000;
+    for (let i = 0; i < 1000; i++) {
+      bigQueue.push({ timestamp: baseTime + i * 10, type: 'hmr-update', payload: {} });
+    }
+
+    // Window: last 500ms before baseTime + 5000
+    const before = baseTime + 5000;
+    const windowMs = 500;
+    const result = bigQueue.window(windowMs, before);
+
+    // All events with timestamp in [baseTime+4500, baseTime+5000]
+    const expected = bigQueue.all().filter(
+      (e) => e.timestamp >= before - windowMs && e.timestamp <= before,
+    );
+    expect(result).toHaveLength(expected.length);
+    expect(result.map((e) => e.timestamp)).toEqual(expected.map((e) => e.timestamp));
+  });
+
+  test('window handles events exactly at boundaries', () => {
+    queue.push({ timestamp: 1000, type: 'hmr-update', payload: {} });
+    queue.push({ timestamp: 2000, type: 'error', payload: {} });
+    queue.push({ timestamp: 3000, type: 'network', payload: {} });
+
+    // Window [2000, 3000] inclusive
+    const result = queue.window(1000, 3000);
+    expect(result).toHaveLength(2);
+    expect(result[0].timestamp).toBe(2000);
+    expect(result[1].timestamp).toBe(3000);
+  });
 });

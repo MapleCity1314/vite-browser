@@ -3,8 +3,8 @@ import {
   correlateErrorWithHMR,
   correlateRenderWithNetwork,
   formatErrorCorrelationReport,
-} from "../src/correlate.js";
-import type { VBEvent } from "../src/event-queue.js";
+} from "../../src/correlate.js";
+import type { VBEvent } from "../../src/event-queue.js";
 
 describe("error correlation", () => {
   it("matches errors to recent hmr updates by module path", () => {

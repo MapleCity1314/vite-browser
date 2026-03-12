@@ -9,7 +9,7 @@ import {
   readLine,
   removeSocketFile,
   type ClientDeps,
-} from "../src/client.js";
+} from "../../src/client.js";
 
 class FakeSocket extends EventEmitter {
   destroyed = false;

@@ -11,7 +11,7 @@ import {
   parseViteLog,
   recordConsoleMessage,
   type HmrEvent,
-} from "../src/browser.js";
+} from "../../src/browser.js";
 
 describe("browser core helpers", () => {
   it("classifies vite log messages", () => {

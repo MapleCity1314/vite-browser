@@ -4,7 +4,7 @@ import {
   formatComponentTree,
   formatPiniaStores,
   formatRouterInfo,
-} from "../src/vue/devtools.js";
+} from "../../src/vue/devtools.js";
 
 describe("vue devtools helpers", () => {
   it("formats component tree from app instances", () => {

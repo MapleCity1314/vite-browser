@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatComponentDetails, formatComponentTree, type SvelteNode } from "../src/svelte/devtools.js";
+import { formatComponentDetails, formatComponentTree, type SvelteNode } from "../../src/svelte/devtools.js";
 
 describe("svelte devtools helpers", () => {
   it("formats empty tree guidance", () => {

@@ -4,7 +4,7 @@ import {
   cleanSource,
   clearSourceMapCache,
   resolveViaSourceMap,
-} from "../src/sourcemap.js";
+} from "../../src/sourcemap.js";
 
 describe("sourcemap helpers", () => {
   beforeEach(() => {

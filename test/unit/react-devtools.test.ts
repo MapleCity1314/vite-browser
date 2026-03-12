@@ -10,7 +10,7 @@ import {
   skipOperation,
   suspenseSkip,
   type ReactNode,
-} from "../src/react/devtools.js";
+} from "../../src/react/devtools.js";
 
 describe("react devtools helpers", () => {
   it("formats tree output with depth and key", () => {

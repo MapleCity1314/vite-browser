@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diagnosePropagation, formatPropagationDiagnosisReport } from "../src/diagnose-propagation.js";
+import { diagnosePropagation, formatPropagationDiagnosisReport } from "../../src/diagnose-propagation.js";
 
 describe("diagnosePropagation", () => {
   it("returns a fail result for a plausible update-render-error chain", () => {

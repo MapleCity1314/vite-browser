@@ -15,8 +15,8 @@ import {
   getStoreUpdateEvents,
   sortEventsChronologically,
   uniqueStrings,
-} from "../src/event-analysis.js";
-import type { VBEvent } from "../src/event-queue.js";
+} from "../../src/event-analysis.js";
+import type { VBEvent } from "../../src/event-queue.js";
 
 describe("event-analysis", () => {
   it("sorts events chronologically and narrows event groups", () => {

@@ -72,7 +72,7 @@ vi.mock("playwright", () => ({
   },
 }));
 
-vi.mock("../src/network.js", () => ({
+vi.mock("../../src/network.js", () => ({
   attach: mockState.networkAttach,
   clear: mockState.networkClear,
   format: mockState.networkFormat,
@@ -80,31 +80,31 @@ vi.mock("../src/network.js", () => ({
   setEventQueue: vi.fn(),
 }));
 
-vi.mock("../src/vue/devtools.js", () => ({
+vi.mock("../../src/vue/devtools.js", () => ({
   getComponentTree: mockState.vueTree,
   getComponentDetails: mockState.vueDetails,
   getPiniaStores: mockState.vuePinia,
   getRouterInfo: mockState.vueRouter,
 }));
 
-vi.mock("../src/react/devtools.js", () => ({
+vi.mock("../../src/react/devtools.js", () => ({
   snapshot: mockState.reactSnapshot,
   format: mockState.reactFormat,
   inspect: mockState.reactInspect,
   path: mockState.reactPath,
 }));
 
-vi.mock("../src/svelte/devtools.js", () => ({
+vi.mock("../../src/svelte/devtools.js", () => ({
   getComponentTree: mockState.svelteTree,
   getComponentDetails: mockState.svelteDetails,
 }));
 
-vi.mock("../src/sourcemap.js", () => ({
+vi.mock("../../src/sourcemap.js", () => ({
   resolveViaSourceMap: mockState.resolveViaSourceMap,
 }));
 
-import * as browser from "../src/browser.js";
-import { EventQueue } from "../src/event-queue.js";
+import * as browser from "../../src/browser.js";
+import { EventQueue } from "../../src/event-queue.js";
 
 describe("browser runtime flows", () => {
   beforeEach(async () => {

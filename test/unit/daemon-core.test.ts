@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { cleanError, createRunner, dispatchLine, type BrowserApi } from "../src/daemon.js";
-import { EventQueue } from "../src/event-queue.js";
+import { cleanError, createRunner, dispatchLine, type BrowserApi } from "../../src/daemon.js";
+import { EventQueue } from "../../src/event-queue.js";
 
 function createBrowserMock() {
   return {

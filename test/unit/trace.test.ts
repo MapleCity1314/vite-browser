@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { correlateRenderPropagation, formatPropagationTraceReport } from "../src/trace.js";
-import type { VBEvent } from "../src/event-queue.js";
+import { correlateRenderPropagation, formatPropagationTraceReport } from "../../src/trace.js";
+import type { VBEvent } from "../../src/event-queue.js";
 
 describe("trace", () => {
   it("builds a propagation trace from render-adjacent events", () => {

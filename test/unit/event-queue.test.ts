@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from 'vitest';
-import { EventQueue, type VBEvent } from '../src/event-queue.js';
+import { EventQueue, type VBEvent } from '../../src/event-queue.js';
 
 describe('EventQueue', () => {
   let queue: EventQueue;

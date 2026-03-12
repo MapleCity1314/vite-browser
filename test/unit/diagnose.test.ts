@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diagnoseHMR, formatDiagnosisReport } from "../src/diagnose.js";
+import { diagnoseHMR, formatDiagnosisReport } from "../../src/diagnose.js";
 
 describe("diagnoseHMR", () => {
   it("detects missing module errors", () => {

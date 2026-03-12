@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { exit, normalizeUrl, parseNumberFlag, printUsage, runCli, type CliIo } from "../src/cli.js";
+import { exit, normalizeUrl, parseNumberFlag, printUsage, runCli, type CliIo } from "../../src/cli.js";
 
 function createIo() {
   const stdout: string[] = [];

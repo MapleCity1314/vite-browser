@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, beforeEach } from "vitest";
-import { attach, clear, detail, format } from "../src/network.js";
+import { attach, clear, detail, format } from "../../src/network.js";
 
 class FakePage extends EventEmitter {
   frameRef = { id: "main" };

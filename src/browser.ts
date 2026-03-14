@@ -28,6 +28,9 @@ import {
   readRuntimeSnapshot,
 } from "./browser-vite.js";
 import * as networkLog from "./network.js";
+import { checkHookHealth, formatHookHealth, injectHook } from "./react/hook-manager.js";
+import { clearRenderHistory, formatRenderInfo, getRecentRenders, installRenderTracking } from "./react/profiler.js";
+import { formatStoreInspection, formatStoreList, inspectStore, listStores } from "./react/zustand.js";
 import { resolveViaSourceMap } from "./sourcemap.js";
 import { EventQueue } from "./event-queue.js";
 
@@ -265,6 +268,42 @@ export async function reactTree(id?: string): Promise<string> {
   return inspectReactTree(session, requireCurrentPage(), id);
 }
 
+export async function reactStoreList(): Promise<string> {
+  return formatStoreList(await listStores(requireCurrentPage()));
+}
+
+export async function reactStoreInspect(store: string): Promise<string> {
+  const result = await inspectStore(requireCurrentPage(), store);
+  if (!result) {
+    throw new Error(`zustand store not found: ${store}`);
+  }
+  return formatStoreInspection(result);
+}
+
+export async function reactHookHealth(): Promise<string> {
+  return formatHookHealth(await checkHookHealth(requireCurrentPage()));
+}
+
+export async function reactHookInject(): Promise<string> {
+  const currentPage = requireCurrentPage();
+  const injected = await injectHook(currentPage);
+  const status = await checkHookHealth(currentPage);
+  const prefix = injected ? "React hook injected.\n\n" : "React hook already installed.\n\n";
+  return `${prefix}${formatHookHealth(status)}`;
+}
+
+export async function reactCommits(limit = 20): Promise<string> {
+  const currentPage = requireCurrentPage();
+  await installRenderTracking(currentPage);
+  return formatRenderInfo(await getRecentRenders(currentPage, limit));
+}
+
+export async function reactCommitsClear(): Promise<string> {
+  const currentPage = requireCurrentPage();
+  await clearRenderHistory(currentPage);
+  return "cleared React commit history";
+}
+
 export async function svelteTree(id?: string): Promise<string> {
   return inspectSvelteTree(requireCurrentPage(), id);
 }
@@ -289,6 +328,10 @@ export async function viteHMR(): Promise<string> {
 
 export async function viteRuntimeStatus(): Promise<string> {
   const currentPage = requireCurrentPage();
+  if (session.framework === "unknown") {
+    const result = await detectBrowserFramework(currentPage);
+    session.framework = result.framework;
+  }
   const runtime = await readRuntimeSnapshot(currentPage);
 
   return formatRuntimeStatus(runtime, session.framework, session.hmrEvents);
@@ -441,6 +484,8 @@ async function navigateAndRefreshContext(
   clearRuntimeErrors();
   await injectEventCollector(currentPage);
   if (refreshFramework) {
+    await currentPage.waitForLoadState?.("networkidle", { timeout: 1_000 }).catch(() => {});
+    await currentPage.waitForTimeout?.(100).catch(() => {});
     await detectFramework();
   }
 }

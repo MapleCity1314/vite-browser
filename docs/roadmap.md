@@ -39,19 +39,21 @@
 **1. Bundled React DevTools Hook** (commit cbf5a70)
 - Internal minimal hook implementation — zero external dependency
 - Removed `REACT_DEVTOOLS_EXTENSION` path requirement entirely
-- Hook health checks and auto-injection on page load
-- 7 tests
+- `react hook health` and `react hook inject` commands
+- `react tree` auto-recovery after hook reinjection attempts
+- 8 tests
 
 **2. Zustand State Management Support** (commit cb7a332)
 - Store detection, listing, and inspection (`react store list / inspect`)
 - Circular reference handling in state serialization
 - 6 tests
 
-**3. React Render Tracking & Profiling** (commit 7787397)
-- React DevTools Profiler API integration
-- Render phase/duration tracking
-- Slow render detection (>16 ms threshold)
-- 8 tests
+**3. React Commit Tracing** (follow-up hardening)
+- Lightweight React commit records via `react commits`
+- Clearable commit history via `react commits clear`
+- Reports root name, phase, fiber count, and measured duration when available
+- Avoids fabricated profiler data by showing `n/a` for unavailable durations
+- 9 tests
 
 **4. React 18 + Vite Test Fixture** (commit 36040a5)
 - Self-contained React test app with Zustand and React Router
@@ -61,6 +63,10 @@
 ```bash
 vite-browser react store list
 vite-browser react store inspect <name>
+vite-browser react hook health
+vite-browser react hook inject
+vite-browser react commits --limit 20
+vite-browser react commits clear
 ```
 
 ---
@@ -90,7 +96,12 @@ vite-browser diagnose react-propagation --window 5000
 
 Files: `src/diagnose-react-propagation.ts`
 
-**3. vite-rsc Support**
+**3. Deeper React Profiler Integration**
+- Replace lightweight commit tracing with richer component-level profiling where React exposes trustworthy data
+- Add reason analysis only after data quality is verified in real apps
+- Consider JSON output / filtering once the stable data model is settled
+
+**4. vite-rsc Support**
 - Detect vite-rsc runtime
 - Track Server Component boundaries
 - Monitor RSC payload streaming
@@ -98,11 +109,11 @@ Files: `src/diagnose-react-propagation.ts`
 
 Files: `src/vite-rsc/`
 
-**4. Jotai / Valtio Support**
+**5. Jotai / Valtio Support**
 - Detect atom/selector updates
 - Proxy-based state tracking
 
-**5. Advanced Vue 3.5+ Features**
+**6. Advanced Vue 3.5+ Features**
 - `defineModel` and generic components support
 - Composable state flow tracing
 - Stale ref and reactive issue detection

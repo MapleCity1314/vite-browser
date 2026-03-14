@@ -4,6 +4,7 @@ import {
   getHookSource,
   type HookHealthStatus,
 } from "../../src/react/hook-manager.js";
+import { decodeOperations } from "../../src/react/devtools.js";
 
 describe("React DevTools Hook Manager", () => {
   it("loads hook source code", () => {
@@ -77,5 +78,56 @@ describe("React DevTools Hook Manager", () => {
     expect(source).toContain("installReactDevToolsHook");
     expect(source).toContain("inject");
     expect(source).toContain("onCommitFiberRoot");
+  });
+
+  it("tracks fiber roots and emits operations for committed trees", () => {
+    const source = getHookSource();
+    const install = new Function("window", `${source}; return window.__REACT_DEVTOOLS_GLOBAL_HOOK__;`);
+    const messages: unknown[] = [];
+    const mockWindow = {
+      postMessage(message: unknown) {
+        messages.push(message);
+      },
+    };
+
+    const hook = install(mockWindow) as {
+      inject: (renderer: unknown) => number;
+      onCommitFiberRoot: (id: number, root: unknown) => void;
+      rendererInterfaces: Map<number, { flushInitialOperations: () => void }>;
+    };
+
+    const rendererId = hook.inject({ version: "19.0.0" });
+    expect(rendererId).toBe(1);
+    expect(hook.inject({ version: "19.1.0" })).toBe(2);
+
+    const counterFiber = {
+      type: { name: "Counter" },
+      key: "main",
+      memoizedProps: { count: 1 },
+      memoizedState: null,
+      child: null,
+      sibling: null,
+    };
+    const appFiber = {
+      type: { name: "App" },
+      key: null,
+      memoizedProps: {},
+      memoizedState: null,
+      child: counterFiber,
+      sibling: null,
+    };
+    counterFiber.return = appFiber;
+    appFiber.return = null;
+
+    hook.onCommitFiberRoot(rendererId, { current: appFiber });
+    hook.rendererInterfaces.get(rendererId)?.flushInitialOperations();
+
+    const operations = (messages[0] as { payload?: { payload?: number[] } })?.payload?.payload;
+    expect(Array.isArray(operations)).toBe(true);
+    expect(decodeOperations(operations!)).toEqual([
+      { id: 1, type: 11, name: null, key: null, parent: 0 },
+      { id: 2, type: 0, name: "App", key: null, parent: 1 },
+      { id: 3, type: 0, name: "Counter", key: "main", parent: 2 },
+    ]);
   });
 });

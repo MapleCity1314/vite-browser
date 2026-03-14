@@ -1,3 +1,4 @@
+import { accessSync, constants } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -23,9 +24,13 @@ const session = sanitizeSession(process.env.VITE_BROWSER_SESSION || "default");
 export function resolveSocketDir(): string {
   try {
     const home = homedir();
-    if (home) return join(home, ".vite-browser");
+    if (home) {
+      accessSync(home, constants.W_OK);
+      return join(home, ".vite-browser");
+    }
   } catch {
-    // homedir() can throw on misconfigured systems
+    // homedir() can throw, and sandboxed / CI environments may expose a
+    // home directory that is present but not writable.
   }
   // Fallback: use tmpdir scoped by uid to avoid collisions
   const uid = process.getuid?.() ?? process.pid;

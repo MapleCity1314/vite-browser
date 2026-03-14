@@ -117,6 +117,55 @@ export async function runCli(argv: string[], io: CliIo) {
     exit(io, res, res.ok && res.data ? String(res.data) : "");
   }
 
+  if (cmd === "react" && arg === "store") {
+    const sub = args[2];
+    if (sub === "list") {
+      const res = await io.send("react-store-list");
+      exit(io, res, res.ok && res.data ? String(res.data) : "");
+    }
+
+    if (sub === "inspect") {
+      const store = args[3];
+      if (!store) {
+        io.stderr("usage: vite-browser react store inspect <name>");
+        io.exit(1);
+      }
+      const res = await io.send("react-store-inspect", { store });
+      exit(io, res, res.ok && res.data ? String(res.data) : "");
+    }
+
+    io.stderr("usage: vite-browser react store <list|inspect> [name]");
+    io.exit(1);
+  }
+
+  if (cmd === "react" && arg === "hook") {
+    const sub = args[2];
+    if (sub === "health") {
+      const res = await io.send("react-hook-health");
+      exit(io, res, res.ok && res.data ? String(res.data) : "");
+    }
+
+    if (sub === "inject") {
+      const res = await io.send("react-hook-inject");
+      exit(io, res, res.ok && res.data ? String(res.data) : "");
+    }
+
+    io.stderr("usage: vite-browser react hook <health|inject>");
+    io.exit(1);
+  }
+
+  if (cmd === "react" && arg === "commits") {
+    const sub = args[2];
+    if (sub === "clear") {
+      const res = await io.send("react-commits-clear");
+      exit(io, res, res.ok && res.data ? String(res.data) : "cleared React commit history");
+    }
+
+    const limit = parseNumberFlag(args, "--limit", 20);
+    const res = await io.send("react-commits", { limit });
+    exit(io, res, res.ok && res.data ? String(res.data) : "");
+  }
+
   if (cmd === "svelte" && arg === "tree") {
     const id = args[2];
     const res = await io.send("svelte-tree", { id });
@@ -265,6 +314,12 @@ VUE COMMANDS
 
 REACT COMMANDS
   react tree [id]                     Show React component tree or inspect component
+  react store list                    List detected Zustand stores
+  react store inspect <name>          Show Zustand store state and actions
+  react hook health                   Show bundled React hook status
+  react hook inject                   Inject bundled React hook into current page
+  react commits [--limit <n>]         Show recent React commit records
+  react commits clear                 Clear recorded React commit history
 
 SVELTE COMMANDS
   svelte tree [id]                    Show Svelte component tree or inspect component

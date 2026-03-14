@@ -1,7 +1,7 @@
 /**
  * React DevTools Hook Management
  *
- * Provides health checks and auto-injection for the bundled React DevTools hook.
+ * Provides health checks and injection helpers for the bundled React DevTools hook.
  * This removes the dependency on external browser extensions for React inspection.
  */
 
@@ -40,7 +40,7 @@ export async function checkHookHealth(page: Page): Promise<HookHealthStatus> {
 }
 
 /**
- * Inject the React DevTools hook into a page if not already present
+ * Inject the React DevTools hook into a page if not already present.
  */
 export async function injectHook(page: Page): Promise<boolean> {
   const alreadyInstalled = await page.evaluate(

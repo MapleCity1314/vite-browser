@@ -69,7 +69,9 @@ When the failing app is a React application, the same four-pack routing applies.
 ```bash
 vite-browser react store list          # discover Zustand stores
 vite-browser react store inspect <n>   # inspect store state
-vite-browser react renders             # render events with phase and duration
+vite-browser react hook health         # inspect bundled hook status
+vite-browser react hook inject         # inject bundled hook into the current page
+vite-browser react commits --limit 20  # inspect recent React commit records
 ```
 
 No configuration is required. The React DevTools hook is bundled and injected automatically.

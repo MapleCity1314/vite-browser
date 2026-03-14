@@ -95,28 +95,29 @@
 
 ## v0.3.5+：React 环境支持增强
 
-**目标**：提升 React 应用的诊断能力，达到与 Vue/Pinia 相当的深度支持。
+**状态**：核心能力已交付；更深层的 profiler / 传播诊断仍在后续规划中。
+
+**目标**：提升 React 应用的诊断能力，先交付稳定的 inspection / store / hook / commit tracing 能力，再逐步补深度诊断。
 
 ### 核心功能
 
 #### 1. React DevTools 集成改进
-**当前问题**：
-- React DevTools 扩展依赖外部路径，安装复杂
-- 扩展模式失败时回退到基础模式，但功能受限
-- `snapshot` 和 `inspect` 依赖扩展的 bridge 消息，不够稳定
-
-**改进方案**：
+**已交付**：
 - **内置 React DevTools Hook**：
-  - 将 `installHook.js` 打包到项目中（MIT 许可证兼容）
+  - 将 hook 内置到项目中
   - 移除对外部扩展路径的依赖
-  - 简化安装流程，实现零配置
-- **增强 Hook 注入**：
-  - 在页面加载前注入 hook，确保 React 初始化时可用
-  - 添加 hook 健康检查和自动重注入
-- **改进 Bridge 通信**：
-  - 添加消息超时和重试机制
-  - 实现更稳定的 `operations` 事件监听
-  - 支持 React 18+ 的并发特性
+  - 页面启动时自动注入，实现零配置
+- **Hook 诊断与恢复**：
+  - `vite-browser react hook health`
+  - `vite-browser react hook inject`
+  - `react tree` 首次失败后会尝试恢复并重试一次
+- **Bridge 读取稳定性提升**：
+  - renderer/root 跟踪已修正
+  - 框架检测不再被裸 hook 误判污染
+
+**后续待做**：
+- 更细粒度的 bridge 超时与重试策略
+- React 18+ 并发特性的专门可视化
 
 **文件涉及**：
 - `src/react/devtools.ts` - DevTools 集成逻辑
@@ -124,50 +125,40 @@
 - `src/browser-session.ts` - Hook 注入逻辑
 
 #### 2. React 状态管理支持
-**新增功能**：
+**已交付**：
 - **Zustand 支持**：
   - 检测 Zustand store 实例
-  - 追踪 store 更新和订阅者
-  - 格式化 store 状态输出
-- **Redux/Redux Toolkit 支持**：
-  - 检测 Redux DevTools Extension
-  - 读取 store 状态和 action 历史
-  - 关联 action dispatch 与组件渲染
-- **Jotai/Recoil 支持**（可选）：
-  - 检测 atom/selector 更新
-  - 追踪依赖关系
+  - `vite-browser react store list`
+  - `vite-browser react store inspect <name>`
+  - 循环引用安全序列化
+
+**后续待做**：
+- **Redux/Redux Toolkit 支持**
+- **Jotai/Recoil/Valtio 支持**
+- store 更新历史和订阅者级别追踪
 
 **新增命令**：
 ```bash
 vite-browser react store list              # 列出所有检测到的 store
 vite-browser react store inspect <name>    # 查看 store 状态
-vite-browser react store trace <name>      # 追踪 store 更新历史
 ```
 
 **文件涉及**：
-- `src/react/stores.ts` (新建) - 状态管理集成
 - `src/react/zustand.ts` (新建)
 - `src/react/redux.ts` (新建)
 
 #### 3. React 渲染追踪增强
-**当前问题**：
-- `browser-collector.ts` 中的 React 渲染追踪较为基础
-- 缺少渲染原因分析（props 变化、state 变化、context 变化）
-- 无法追踪 React 18 并发渲染
+**已交付**：
+- 轻量 React commit tracing
+- `vite-browser react commits --limit 20`
+- `vite-browser react commits clear`
+- 输出 root 名称、phase、fiber 数量，以及 React 暴露时可测得的 duration
+- 无法可靠取得的 duration 明确显示为 `n/a`
 
-**改进方案**：
-- **渲染原因分析**：
-  - 集成 React DevTools Profiler API
-  - 记录每次渲染的触发原因（props/state/hooks/parent）
-  - 识别不必要的重渲染
-- **性能分析**：
-  - 记录组件渲染时长
-  - 检测慢渲染和渲染瓶颈
-  - 生成火焰图数据
-- **并发特性支持**：
-  - 追踪 Suspense 边界
-  - 记录 Transition 和 useDeferredValue 使用
-  - 检测并发渲染冲突
+**后续待做**：
+- 组件级渲染原因分析（props/state/hooks/parent）
+- 更深的 Profiler API 集成
+- Suspense / Transition / 并发渲染可视化
 
 **文件涉及**：
 - `src/browser-collector.ts` - 渲染事件收集
@@ -211,12 +202,17 @@ vite-browser diagnose react-propagation --window 5000
 
 ### 测试覆盖
 
-#### 新增测试
-- React DevTools hook 注入测试
-- Zustand/Redux store 检测和追踪测试
+#### 当前已覆盖
+- React DevTools hook 注入 / root 跟踪测试
+- Zustand store 检测和格式化测试
+- React commit tracing 格式化与路由测试
+- React 自动恢复和 CLI / daemon 路由测试
+
+#### 后续待补
+- Redux store 检测和追踪测试
 - React 渲染原因分析测试
 - React 传播路径诊断测试
-- 真实 React 应用的 E2E 测试（Create React App, Next.js, Remix）
+- 更真实的 React 应用 E2E 测试
 
 **文件涉及**：
 - `test/react-stores.test.ts` (新建)
@@ -246,14 +242,11 @@ vite-browser diagnose react-propagation --window 5000
 - **Week 5**：Beta 测试和 bug 修复
 - **Week 6**：正式发布
 
-### v0.3.5 时间线
-- **Week 1-2**：React DevTools 集成改进和内置 hook
-- **Week 3-4**：Zustand 和 Redux 支持
-- **Week 5-6**：渲染追踪和性能分析
-- **Week 7-8**：传播路径诊断
-- **Week 9**：测试覆盖和文档
-- **Week 10**：Beta 测试
-- **Week 11**：正式发布
+### v0.3.5 时间线（回顾）
+- **已完成**：React DevTools 集成改进和内置 hook
+- **已完成**：Zustand 支持
+- **已完成**：轻量 commit tracing、hook 诊断与恢复、测试覆盖和文档
+- **延期到后续版本**：Redux 支持、深度 profiler、React 传播路径诊断
 
 ### v0.3.6+ 后续规划
 - Jotai/Recoil 支持

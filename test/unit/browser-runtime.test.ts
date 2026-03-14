@@ -1,5 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const hookManagerState = vi.hoisted(() => ({
+  health: {
+    installed: true,
+    hasRenderers: true,
+    rendererCount: 1,
+    hasFiberSupport: true,
+  },
+  injected: false,
+}));
+
+const profilerState = vi.hoisted(() => ({
+  renders: [] as Array<{
+    rendererId: number;
+    rootName: string;
+    phase: "mount" | "update" | "nested-update";
+    actualDuration: number | null;
+    baseDuration: number | null;
+    startTime: number | null;
+    commitTime: number;
+    fiberCount: number;
+    interactions: Array<{ id: number; name: string; timestamp: number }>;
+  }>,
+}));
+
 const mockState = vi.hoisted(() => {
   const page = {
     goto: vi.fn(async (url: string) => {
@@ -17,6 +41,7 @@ const mockState = vi.hoisted(() => {
       mockState.handlers[event] = handler;
     }),
     screenshot: vi.fn(async () => undefined),
+    waitForTimeout: vi.fn(async () => undefined),
   };
 
   const context = {
@@ -103,6 +128,30 @@ vi.mock("../../src/sourcemap.js", () => ({
   resolveViaSourceMap: mockState.resolveViaSourceMap,
 }));
 
+vi.mock("../../src/react/hook-manager.js", () => ({
+  checkHookHealth: vi.fn(async () => hookManagerState.health),
+  formatHookHealth: vi.fn(
+    (status: { installed: boolean; hasRenderers: boolean; rendererCount: number; hasFiberSupport: boolean }) =>
+      `installed=${status.installed} renderers=${status.rendererCount}`,
+  ),
+  getHookSource: vi.fn(() => ""),
+  injectHook: vi.fn(async () => hookManagerState.injected),
+}));
+
+vi.mock("../../src/react/profiler.js", () => ({
+  installRenderTracking: vi.fn(async () => undefined),
+  getRecentRenders: vi.fn(async (_page: unknown, limit: number) => profilerState.renders.slice(-limit)),
+  clearRenderHistory: vi.fn(async () => {
+    profilerState.renders = [];
+  }),
+  formatRenderInfo: vi.fn(
+    (renders: Array<{ rootName: string; actualDuration: number | null }>) =>
+      renders.length === 0
+        ? "No renders recorded"
+        : renders.map((render) => `${render.rootName}:${render.actualDuration ?? "n/a"}`).join("\n"),
+  ),
+}));
+
 import * as browser from "../../src/browser.js";
 import { EventQueue } from "../../src/event-queue.js";
 
@@ -118,6 +167,7 @@ describe("browser runtime flows", () => {
     mockState.page.evaluate.mockClear();
     mockState.page.on.mockClear();
     mockState.page.screenshot.mockClear();
+    mockState.page.waitForTimeout.mockClear();
     mockState.context.pages.mockClear();
     mockState.context.newPage.mockClear();
     mockState.context.addCookies.mockClear();
@@ -137,6 +187,14 @@ describe("browser runtime flows", () => {
     mockState.svelteTree.mockClear();
     mockState.svelteDetails.mockClear();
     mockState.resolveViaSourceMap.mockClear();
+    hookManagerState.health = {
+      installed: true,
+      hasRenderers: true,
+      rendererCount: 1,
+      hasFiberSupport: true,
+    };
+    hookManagerState.injected = false;
+    profilerState.renders = [];
     await browser.close();
   });
 
@@ -223,6 +281,83 @@ describe("browser runtime flows", () => {
     await browser.open("http://localhost:5173/svelte");
     expect(await browser.svelteTree()).toBe("svelte-tree");
     expect(await browser.svelteTree("2")).toBe("svelte-details");
+  });
+
+  it("retries react inspection after hook recovery", async () => {
+    mockState.evaluateResults = [undefined, "react@19.0.0"];
+    await browser.open("http://localhost:5173/app");
+
+    hookManagerState.health = {
+      installed: false,
+      hasRenderers: false,
+      rendererCount: 0,
+      hasFiberSupport: false,
+    };
+    hookManagerState.injected = true;
+    mockState.reactSnapshot
+      .mockRejectedValueOnce(new Error("React DevTools hook not installed"))
+      .mockResolvedValueOnce([{ id: 1 }]);
+
+    expect(await browser.reactTree()).toBe("react-tree");
+    expect(mockState.page.waitForTimeout).toHaveBeenCalledWith(60);
+  });
+
+  it("reports and injects react hook health", async () => {
+    mockState.evaluateResults = [undefined, "react@19.0.0"];
+    await browser.open("http://localhost:5173/app");
+
+    hookManagerState.health = {
+      installed: false,
+      hasRenderers: false,
+      rendererCount: 0,
+      hasFiberSupport: false,
+    };
+    expect(await browser.reactHookHealth()).toBe("installed=false renderers=0");
+
+    hookManagerState.injected = true;
+    hookManagerState.health = {
+      installed: true,
+      hasRenderers: false,
+      rendererCount: 0,
+      hasFiberSupport: true,
+    };
+    const injected = await browser.reactHookInject();
+    expect(injected).toContain("React hook injected.");
+    expect(injected).toContain("installed=true renderers=0");
+  });
+
+  it("reads and clears react commit history", async () => {
+    mockState.evaluateResults = [undefined, "react@19.0.0"];
+    await browser.open("http://localhost:5173/app");
+
+    profilerState.renders = [
+      {
+        rendererId: 1,
+        rootName: "App",
+        phase: "mount",
+        actualDuration: 5.2,
+        baseDuration: 5.0,
+        startTime: 1000,
+        commitTime: 1005,
+        fiberCount: 8,
+        interactions: [],
+      },
+      {
+        rendererId: 1,
+        rootName: "Cart",
+        phase: "update",
+        actualDuration: null,
+        baseDuration: null,
+        startTime: null,
+        commitTime: 2005,
+        fiberCount: 3,
+        interactions: [],
+      },
+    ];
+
+    expect(await browser.reactCommits(1)).toBe("Cart:n/a");
+    expect(await browser.reactCommitsClear()).toBe("cleared React commit history");
+    expect(await browser.reactCommits(5)).toBe("No renders recorded");
   });
 
   it("reports runtime, hmr, module graph, errors, logs, screenshot, eval, and network", async () => {

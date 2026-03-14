@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   decodeOperations,
+  findRendererInterfaceForElement,
   format,
   formatHookLine,
   formatInspectionResult,
+  getPrimaryRendererInterface,
   path,
   previewValue,
   rectCount,
@@ -86,5 +88,20 @@ describe("react devtools helpers", () => {
     expect(skipOperation(4, [4, 0, 0], 0)).toBe(3);
     expect(skipOperation(8, [8, 0, 0, 0, 0, 2], 0)).toBe(14);
     expect(suspenseSkip([12, 1, 0, 0, 0, 0, 0], 0)).toBe(7);
+  });
+
+  it("selects renderer interfaces without hard-coding renderer id 1", () => {
+    const first = { hasElementWithId: (id: number) => id === 42 };
+    const second = { hasElementWithId: (id: number) => id === 7 };
+    const hook = {
+      rendererInterfaces: new Map([
+        [9, first],
+        [17, second],
+      ]),
+    };
+
+    expect(getPrimaryRendererInterface(hook)).toBe(first);
+    expect(findRendererInterfaceForElement(hook, 7)).toBe(second);
+    expect(findRendererInterfaceForElement(hook, 99)).toBeNull();
   });
 });

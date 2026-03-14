@@ -43,7 +43,10 @@ When debugging a React application, the following commands are available in addi
 |---|---|
 | `react store list` | List all detected Zustand stores in the page |
 | `react store inspect <n>` | Print current state of store `n` |
-| `react renders` | Show recent render events with phase, duration, and slow flag |
+| `react hook health` | Show bundled React hook installation and renderer status |
+| `react hook inject` | Inject the bundled React hook into the current page |
+| `react commits [--limit <n>]` | Show recent React commit records |
+| `react commits clear` | Clear recorded React commit history |
 
 The React DevTools hook is injected automatically — no extension or environment variable is needed.
 

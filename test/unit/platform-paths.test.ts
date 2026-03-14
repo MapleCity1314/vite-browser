@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { resolveSocketDir, sanitizeSession } from "../../src/paths.js";
-import { platformChromiumArgs } from "../../src/browser-session.js";
+import {
+  platformChromiumArgs,
+  resolveBrowserHeadless,
+  resolveChromiumExecutablePath,
+} from "../../src/browser-session.js";
 
 describe("paths", () => {
   describe("resolveSocketDir", () => {
@@ -52,5 +56,24 @@ describe("platformChromiumArgs", () => {
     for (const arg of args) {
       expect(typeof arg).toBe("string");
     }
+  });
+});
+
+describe("browser launch config", () => {
+  it("honors explicit executable path from env", () => {
+    expect(
+      resolveChromiumExecutablePath({
+        VITE_BROWSER_EXECUTABLE_PATH: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      } as NodeJS.ProcessEnv),
+    ).toBe("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome");
+  });
+
+  it("defaults headless to false", () => {
+    expect(resolveBrowserHeadless({} as NodeJS.ProcessEnv)).toBe(false);
+  });
+
+  it("parses headless env flag", () => {
+    expect(resolveBrowserHeadless({ VITE_BROWSER_HEADLESS: "true" } as NodeJS.ProcessEnv)).toBe(true);
+    expect(resolveBrowserHeadless({ VITE_BROWSER_HEADLESS: "1" } as NodeJS.ProcessEnv)).toBe(true);
   });
 });

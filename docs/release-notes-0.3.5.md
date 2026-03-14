@@ -1,6 +1,6 @@
 # vite-browser v0.3.5
 
-`v0.3.5` delivers the Enhanced React Support milestone: Zustand store inspection, React render profiling, and a bundled DevTools hook that removes the need for any external extension.
+`v0.3.5` delivers the Enhanced React Support milestone: Zustand store inspection, bundled hook diagnostics, lightweight React commit tracing, and a bundled DevTools hook that removes the need for any external extension.
 
 ## What changed
 
@@ -9,7 +9,6 @@
 `v0.3.4` and earlier required a local `REACT_DEVTOOLS_EXTENSION` path to unlock deep React inspection. `v0.3.5` ships an internal minimal hook implementation that is injected before React initializes, giving the same inspection surface with no installation step.
 
 - Hook is auto-injected on every page open
-- Health checks detect stale or missing hooks and re-inject automatically
 - The `REACT_DEVTOOLS_EXTENSION` environment variable is no longer required
 
 ### Zustand state management support
@@ -23,15 +22,27 @@ vite-browser react store inspect <n>   # print current state of store n
 
 Detection works by scanning for the Zustand internal subscription registry. Circular references in store state are handled gracefully.
 
-### React render tracking and profiling
+### React hook diagnostics
 
-Render events captured by the browser collector now include:
+React inspection is now easier to validate and recover from the CLI:
 
-- **phase** — `mount` or `update`
-- **actualDuration** — wall time the component spent rendering (ms)
-- **slow** — `true` when `actualDuration > 16 ms`
+```bash
+vite-browser react hook health         # print bundled hook status
+vite-browser react hook inject         # inject the hook into the current page
+```
 
-This integrates the React DevTools Profiler API, so the data is sourced from the same instrumentation React itself uses.
+`react tree` also retries automatically after a hook recovery attempt when the initial inspection fails because the hook is missing or the renderer has not attached yet.
+
+### React commit tracing
+
+The CLI now exposes lightweight React commit records without pretending to offer full Profiler parity:
+
+```bash
+vite-browser react commits --limit 20  # show recent commit records
+vite-browser react commits clear       # clear recorded commit history
+```
+
+Commit output focuses on stable metadata such as root name, phase, fiber count, and measured duration when React exposes it. Unknown durations are reported as `n/a` rather than fabricated.
 
 ### React 18 + Vite test fixture
 
@@ -46,7 +57,7 @@ A self-contained test application (`test/fixtures/react-app/`) with React 18, Zu
 
 ## Test count
 
-175 tests passing (up from 154 in v0.3.3).
+191 tests passing (up from 154 in v0.3.3).
 
 ## Validation
 
@@ -54,7 +65,7 @@ Verified with:
 
 - `pnpm build`
 - `pnpm typecheck`
-- `pnpm test` (175 / 175 pass)
+- `pnpm test` (191 / 191 pass)
 
 ## Upgrade
 

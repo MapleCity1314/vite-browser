@@ -1,9 +1,9 @@
 import { createServer } from "node:net";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
+import { resolveSocketDir } from "../../src/paths.js";
 
 type CmdResult = { code: number | null; stdout: string; stderr: string };
 type ReceivedCmd = Record<string, unknown>;
@@ -196,6 +196,12 @@ describe("cli routing", () => {
       { args: ["vue", "pinia", "cart"], expected: { action: "vue-pinia", store: "cart" } },
       { args: ["vue", "router"], expected: { action: "vue-router" } },
       { args: ["react", "tree", "3"], expected: { action: "react-tree", id: "3" } },
+      { args: ["react", "store", "list"], expected: { action: "react-store-list" } },
+      { args: ["react", "store", "inspect", "cart"], expected: { action: "react-store-inspect", store: "cart" } },
+      { args: ["react", "hook", "health"], expected: { action: "react-hook-health" } },
+      { args: ["react", "hook", "inject"], expected: { action: "react-hook-inject" } },
+      { args: ["react", "commits", "--limit", "7"], expected: { action: "react-commits", limit: 7 } },
+      { args: ["react", "commits", "clear"], expected: { action: "react-commits-clear" } },
       { args: ["svelte", "tree", "2"], expected: { action: "svelte-tree", id: "2" } },
       { args: ["vite", "runtime"], expected: { action: "vite-runtime" } },
       { args: ["network", "5"], expected: { action: "network", idx: 5 } },
@@ -222,7 +228,7 @@ function registerCleanup(daemon: Awaited<ReturnType<typeof startInspectDaemon>>)
 }
 
 async function startInspectDaemon(session: string) {
-  const socketDir = join(homedir(), ".vite-browser");
+  const socketDir = resolveSocketDir();
   const socketPath =
     process.platform === "win32"
       ? `\\\\.\\pipe\\vite-browser-${session}`

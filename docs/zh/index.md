@@ -102,7 +102,7 @@ vite-browser diagnose propagation --window 5000</code></pre>
     <div class="vb-home-card">
       <h3>最新动态</h3>
       <ul>
-        <li><a href="/release-notes-0.3.3">v0.3.3 发布说明</a></li>
+        <li><a href="/release-notes-0.3.6">v0.3.6 发布说明</a></li>
         <li><a href="/release-gate-0.3">v0.3 传播能力详情</a></li>
         <li><a href="/zh/releases">版本总览</a></li>
       </ul>

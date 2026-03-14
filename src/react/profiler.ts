@@ -1,77 +1,77 @@
 /**
- * React render tracking and profiling
+ * React commit tracking groundwork.
  *
- * Tracks component renders, durations, and trigger reasons using React DevTools Profiler API.
+ * This module records real commit metadata that can be observed from the
+ * React DevTools hook without pretending to expose a full Profiler surface.
  */
 
 import type { Page } from "playwright";
 
+export interface RenderInteraction {
+  id: number;
+  name: string;
+  timestamp: number;
+}
+
 export interface RenderInfo {
-  componentId: number;
-  componentName: string;
+  rendererId: number;
+  rootName: string;
   phase: "mount" | "update" | "nested-update";
-  actualDuration: number;
-  baseDuration: number;
-  startTime: number;
+  actualDuration: number | null;
+  baseDuration: number | null;
+  startTime: number | null;
   commitTime: number;
-  interactions: Set<{ id: number; name: string; timestamp: number }>;
+  fiberCount: number;
+  interactions: RenderInteraction[];
 }
 
 export interface RenderTrigger {
-  componentId: number;
-  componentName: string;
+  rendererId: number;
+  rootName: string;
   reason: "props" | "state" | "hooks" | "parent" | "context" | "unknown";
   timestamp: number;
   details?: string;
 }
 
-/**
- * Install render tracking in the page
- */
 export async function installRenderTracking(page: Page): Promise<void> {
   await page.evaluate(inPageInstallRenderTracking);
 }
 
-/**
- * Get recent render events
- */
 export async function getRecentRenders(page: Page, limit = 50): Promise<RenderInfo[]> {
   return page.evaluate(inPageGetRecentRenders, limit);
 }
 
-/**
- * Get render triggers (why components re-rendered)
- */
 export async function getRenderTriggers(page: Page, limit = 50): Promise<RenderTrigger[]> {
   return page.evaluate(inPageGetRenderTriggers, limit);
 }
 
-/**
- * Clear render history
- */
 export async function clearRenderHistory(page: Page): Promise<void> {
   await page.evaluate(inPageClearRenderHistory);
 }
 
-/**
- * Format render info for CLI output
- */
+export function formatDuration(duration: number | null): string {
+  return duration == null ? "n/a" : `${duration.toFixed(2)}ms`;
+}
+
 export function formatRenderInfo(renders: RenderInfo[]): string {
   if (renders.length === 0) return "No renders recorded";
 
-  const lines: string[] = ["# React Renders\n"];
+  const lines: string[] = ["# React Commits\n"];
 
   for (const render of renders) {
     const phase = render.phase === "mount" ? "MOUNT" : render.phase === "update" ? "UPDATE" : "NESTED";
-    const duration = render.actualDuration.toFixed(2);
-    const slow = render.actualDuration > 16 ? " ⚠️ SLOW" : "";
+    const duration = formatDuration(render.actualDuration);
+    const slow = render.actualDuration != null && render.actualDuration > 16 ? " ⚠️ SLOW" : "";
 
-    lines.push(`[${phase}] ${render.componentName} (${duration}ms)${slow}`);
+    lines.push(`[${phase}] ${render.rootName} (${duration})${slow}`);
+    lines.push(`  Fibers: ${render.fiberCount}`);
 
-    if (render.interactions.size > 0) {
-      const interactions = Array.from(render.interactions)
-        .map((i) => i.name)
-        .join(", ");
+    if (render.baseDuration != null) {
+      lines.push(`  Base duration: ${render.baseDuration.toFixed(2)}ms`);
+    }
+
+    if (render.interactions.length > 0) {
+      const interactions = render.interactions.map((i) => i.name).join(", ");
       lines.push(`  Interactions: ${interactions}`);
     }
   }
@@ -79,9 +79,6 @@ export function formatRenderInfo(renders: RenderInfo[]): string {
   return lines.join("\n");
 }
 
-/**
- * Format render triggers for CLI output
- */
 export function formatRenderTriggers(triggers: RenderTrigger[]): string {
   if (triggers.length === 0) return "No render triggers recorded";
 
@@ -90,20 +87,17 @@ export function formatRenderTriggers(triggers: RenderTrigger[]): string {
   for (const trigger of triggers) {
     const reason = trigger.reason.toUpperCase();
     const details = trigger.details ? ` - ${trigger.details}` : "";
-    lines.push(`[${reason}] ${trigger.componentName}${details}`);
+    lines.push(`[${reason}] ${trigger.rootName}${details}`);
   }
 
   return lines.join("\n");
 }
 
-/**
- * Analyze slow renders (> 16ms)
- */
 export function analyzeSlowRenders(renders: RenderInfo[]): string {
-  const slowRenders = renders.filter((r) => r.actualDuration > 16);
+  const slowRenders = renders.filter((r) => r.actualDuration != null && r.actualDuration > 16);
 
   if (slowRenders.length === 0) {
-    return "No slow renders detected (all renders < 16ms)";
+    return "No slow renders detected with measurable duration (> 16ms)";
   }
 
   const lines: string[] = [
@@ -111,28 +105,25 @@ export function analyzeSlowRenders(renders: RenderInfo[]): string {
     `Found ${slowRenders.length} slow render(s) (> 16ms)\n`,
   ];
 
-  // Group by component
-  const byComponent = new Map<string, RenderInfo[]>();
+  const byRoot = new Map<string, RenderInfo[]>();
   for (const render of slowRenders) {
-    const list = byComponent.get(render.componentName) || [];
+    const list = byRoot.get(render.rootName) || [];
     list.push(render);
-    byComponent.set(render.componentName, list);
+    byRoot.set(render.rootName, list);
   }
 
-  // Sort by total time
-  const sorted = Array.from(byComponent.entries()).sort(
-    ([, a], [, b]) => {
-      const totalA = a.reduce((sum, r) => sum + r.actualDuration, 0);
-      const totalB = b.reduce((sum, r) => sum + r.actualDuration, 0);
-      return totalB - totalA;
-    }
-  );
+  const sorted = Array.from(byRoot.entries()).sort(([, a], [, b]) => {
+    const totalA = a.reduce((sum, r) => sum + (r.actualDuration ?? 0), 0);
+    const totalB = b.reduce((sum, r) => sum + (r.actualDuration ?? 0), 0);
+    return totalB - totalA;
+  });
 
-  for (const [name, renders] of sorted) {
-    const count = renders.length;
-    const total = renders.reduce((sum, r) => sum + r.actualDuration, 0);
+  for (const [name, commits] of sorted) {
+    const durations = commits.map((r) => r.actualDuration ?? 0);
+    const total = durations.reduce((sum, value) => sum + value, 0);
+    const count = commits.length;
     const avg = total / count;
-    const max = Math.max(...renders.map((r) => r.actualDuration));
+    const max = Math.max(...durations);
 
     lines.push(`${name}:`);
     lines.push(`  Count: ${count}`);
@@ -145,66 +136,43 @@ export function analyzeSlowRenders(renders: RenderInfo[]): string {
   return lines.join("\n");
 }
 
-// In-page functions
-
 function inPageInstallRenderTracking() {
   const win = window as any;
 
-  // Initialize storage
   win.__REACT_RENDER_HISTORY__ = win.__REACT_RENDER_HISTORY__ || [];
   win.__REACT_RENDER_TRIGGERS__ = win.__REACT_RENDER_TRIGGERS__ || [];
 
-  // Hook into React DevTools if available
   const hook = win.__REACT_DEVTOOLS_GLOBAL_HOOK__;
   if (!hook) {
     console.warn("React DevTools hook not found, render tracking limited");
     return;
   }
 
-  // Listen for commit events
-  if (!win.__REACT_RENDER_TRACKING_INSTALLED__) {
-    win.__REACT_RENDER_TRACKING_INSTALLED__ = true;
+  if (win.__REACT_RENDER_TRACKING_INSTALLED__) return;
+  win.__REACT_RENDER_TRACKING_INSTALLED__ = true;
 
-    // Track renders via Profiler API
-    const originalOnCommitFiberRoot = hook.onCommitFiberRoot;
-    hook.onCommitFiberRoot = function (id: number, root: any, priorityLevel: any) {
-      try {
-        // Record render info
-        const renderInfo = {
-          componentId: id,
-          componentName: root?.current?.type?.name || "Root",
-          phase: root?.current?.mode === 0 ? "mount" : "update",
-          actualDuration: 0,
-          baseDuration: 0,
-          startTime: Date.now(),
-          commitTime: Date.now(),
-          interactions: new Set(),
-        };
-
-        win.__REACT_RENDER_HISTORY__.push(renderInfo);
-
-        // Keep only last 100 renders
-        if (win.__REACT_RENDER_HISTORY__.length > 100) {
-          win.__REACT_RENDER_HISTORY__.shift();
-        }
-      } catch (e) {
-        // Ignore errors in tracking
+  const originalOnCommitFiberRoot = hook.onCommitFiberRoot;
+  hook.onCommitFiberRoot = function (rendererId: number, root: any, priorityLevel: any) {
+    try {
+      const renderInfo = toRenderInfo(rendererId, root);
+      win.__REACT_RENDER_HISTORY__.push(renderInfo);
+      if (win.__REACT_RENDER_HISTORY__.length > 100) {
+        win.__REACT_RENDER_HISTORY__.shift();
       }
+    } catch {
+      // Ignore tracking errors to avoid breaking the inspected app.
+    }
 
-      if (originalOnCommitFiberRoot) {
-        return originalOnCommitFiberRoot.call(this, id, root, priorityLevel);
-      }
-    };
-  }
+    if (originalOnCommitFiberRoot) {
+      return originalOnCommitFiberRoot.call(this, rendererId, root, priorityLevel);
+    }
+  };
 }
 
 function inPageGetRecentRenders(limit: number): RenderInfo[] {
   const win = window as any;
   const history = win.__REACT_RENDER_HISTORY__ || [];
-  return history.slice(-limit).map((r: any) => ({
-    ...r,
-    interactions: Array.from(r.interactions || []),
-  }));
+  return history.slice(-limit);
 }
 
 function inPageGetRenderTriggers(limit: number): RenderTrigger[] {
@@ -217,4 +185,67 @@ function inPageClearRenderHistory() {
   const win = window as any;
   win.__REACT_RENDER_HISTORY__ = [];
   win.__REACT_RENDER_TRIGGERS__ = [];
+}
+
+function toRenderInfo(rendererId: number, root: any): RenderInfo {
+  const current = root?.current ?? null;
+  const rootChild = current?.child ?? null;
+
+  return {
+    rendererId,
+    rootName: getFiberName(rootChild || current),
+    phase: inferPhase(current),
+    actualDuration: numberOrNull(current?.actualDuration),
+    baseDuration: numberOrNull(current?.treeBaseDuration ?? current?.baseDuration),
+    startTime: numberOrNull(current?.actualStartTime),
+    commitTime: Date.now(),
+    fiberCount: countFibers(current),
+    interactions: normalizeInteractions(root?.memoizedInteractions),
+  };
+}
+
+function inferPhase(current: any): RenderInfo["phase"] {
+  if (!current?.alternate) return "mount";
+  return current.flags && (current.flags & 1024) !== 0 ? "nested-update" : "update";
+}
+
+function getFiberName(fiber: any): string {
+  if (!fiber) return "Root";
+  if (typeof fiber.type === "string") return fiber.type;
+  if (fiber.type?.displayName) return fiber.type.displayName;
+  if (fiber.type?.name) return fiber.type.name;
+  if (fiber.elementType?.displayName) return fiber.elementType.displayName;
+  if (fiber.elementType?.name) return fiber.elementType.name;
+  return "Anonymous";
+}
+
+function countFibers(fiber: any): number {
+  let count = 0;
+  const stack = fiber ? [fiber] : [];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    count++;
+    if (current.sibling) stack.push(current.sibling);
+    if (current.child) stack.push(current.child);
+  }
+
+  return count;
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizeInteractions(interactions: unknown): RenderInteraction[] {
+  if (!(interactions instanceof Set)) return [];
+
+  return Array.from(interactions)
+    .map((interaction: any) => ({
+      id: typeof interaction?.id === "number" ? interaction.id : 0,
+      name: typeof interaction?.name === "string" ? interaction.name : "interaction",
+      timestamp: typeof interaction?.timestamp === "number" ? interaction.timestamp : 0,
+    }))
+    .filter((interaction) => interaction.name.length > 0);
 }

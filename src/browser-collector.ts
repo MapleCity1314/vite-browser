@@ -12,8 +12,13 @@ export function initBrowserEventCollector(): void {
     };
   }
 
+  const getVueApp = () =>
+    (document.querySelector("#app") as any)?.__vue_app__ ||
+    (document.querySelector("[data-v-app]") as any)?.__vue_app__ ||
+    null;
+
   const inferFramework = (): RenderEventPayload["framework"] => {
-    if ((window as any).__VUE__ || (window as any).__VUE_DEVTOOLS_GLOBAL_HOOK__) return "vue";
+    if ((window as any).__VUE__ || (window as any).__VUE_DEVTOOLS_GLOBAL_HOOK__ || getVueApp()) return "vue";
     if ((window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__ || (window as any).React) return "react";
     if ((window as any).__SVELTE__ || (window as any).__svelte || (window as any).__SVELTE_DEVTOOLS_GLOBAL_HOOK__) {
       return "svelte";
@@ -33,10 +38,8 @@ export function initBrowserEventCollector(): void {
   const inferVueRenderDetails = () => {
     const hook = (window as any).__VUE_DEVTOOLS_GLOBAL_HOOK__;
     const apps = hook?.apps;
-    if (!Array.isArray(apps) || apps.length === 0) return null;
-
-    const app = apps[0];
-    const rootInstance = app?._instance || app?._container?._vnode?.component;
+    const app = getVueApp() || (Array.isArray(apps) ? apps[0] : null);
+    const rootInstance = app?._instance || app?._container?._vnode?.component || app?._component?.subTree?.component;
     if (!rootInstance) return null;
 
     const names: string[] = [];
@@ -131,7 +134,7 @@ export function initBrowserEventCollector(): void {
 
   const attachPiniaSubscriptions = () => {
     const hook = (window as any).__VUE_DEVTOOLS_GLOBAL_HOOK__;
-    const app = Array.isArray(hook?.apps) ? hook.apps[0] : null;
+    const app = getVueApp() || (Array.isArray(hook?.apps) ? hook.apps[0] : null);
     const pinia = (window as any).__PINIA__ || (window as any).pinia || app?.config?.globalProperties?.$pinia;
     const registry = pinia?._s;
     if (!(registry instanceof Map) || registry.size === 0) return;

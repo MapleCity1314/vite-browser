@@ -21,6 +21,31 @@ export async function inspect(page: Page, id: number): Promise<ReactInspection> 
   return page.evaluate(inPageInspect, id);
 }
 
+export function getPrimaryRendererInterface(hook: {
+  rendererInterfaces?: Map<unknown, unknown> | { values?: () => IterableIterator<unknown> };
+} | null | undefined): unknown {
+  const values = hook?.rendererInterfaces?.values?.();
+  return values?.next().value ?? null;
+}
+
+export function findRendererInterfaceForElement(
+  hook: {
+    rendererInterfaces?: Map<unknown, unknown> | { values?: () => IterableIterator<unknown> };
+  } | null | undefined,
+  id: number,
+): unknown {
+  const values = hook?.rendererInterfaces?.values?.();
+  if (!values) return null;
+
+  for (const rendererInterface of values) {
+    if ((rendererInterface as { hasElementWithId?: (targetId: number) => boolean })?.hasElementWithId?.(id)) {
+      return rendererInterface;
+    }
+  }
+
+  return null;
+}
+
 export function format(nodes: ReactNode[]): string {
   const children = new Map<number, ReactNode[]>();
   for (const n of nodes) {
@@ -201,7 +226,7 @@ async function inPageSnapshot(): Promise<ReactNode[]> {
   const hook = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
   if (!hook) throw new Error("React DevTools hook not installed");
 
-  const ri = hook.rendererInterfaces?.get?.(1);
+  const ri = getPrimaryRendererInterface(hook) as { flushInitialOperations: () => void } | null;
   if (!ri) throw new Error("no React renderer attached");
 
   const batches = await collect(ri);
@@ -230,7 +255,17 @@ async function inPageSnapshot(): Promise<ReactNode[]> {
 
 function inPageInspect(id: number): ReactInspection {
   const hook = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
-  const ri = hook?.rendererInterfaces?.get?.(1);
+  const ri =
+    (findRendererInterfaceForElement(hook, id) as {
+      hasElementWithId: (targetId: number) => boolean;
+      inspectElement: (requestID: number, targetId: number, path: unknown, forceFullData: boolean) => any;
+      getDisplayNameForElementID: (targetId: number) => string;
+    } | null) ??
+    (getPrimaryRendererInterface(hook) as {
+      hasElementWithId: (targetId: number) => boolean;
+      inspectElement: (requestID: number, targetId: number, path: unknown, forceFullData: boolean) => any;
+      getDisplayNameForElementID: (targetId: number) => string;
+    } | null);
   if (!ri) throw new Error("no React renderer attached");
   if (!ri.hasElementWithId(id)) throw new Error(`element ${id} not found (page reloaded?)`);
 

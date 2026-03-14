@@ -104,7 +104,7 @@ vite-browser diagnose propagation --window 5000</code></pre>
     <div class="vb-home-card">
       <h3>What's new</h3>
       <ul>
-        <li><a href="/release-notes-0.3.3">v0.3.3 Release Notes</a></li>
+        <li><a href="/release-notes-0.3.6">v0.3.6 Release Notes</a></li>
         <li><a href="/release-gate-0.3">v0.3 Propagation Details</a></li>
         <li><a href="/releases">All Releases</a></li>
       </ul>

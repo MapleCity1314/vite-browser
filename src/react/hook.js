@@ -18,6 +18,8 @@
   if (typeof window === "undefined") return;
   if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) return;
 
+  let nextRendererId = 1;
+
   const hook = {
     renderers: new Map(),
     rendererInterfaces: new Map(),
@@ -25,7 +27,7 @@
 
     // Called by React when a renderer is injected
     inject(renderer) {
-      const id = Math.random();
+      const id = nextRendererId++;
       hook.renderers.set(id, renderer);
 
       // Create renderer interface for component inspection
@@ -37,12 +39,14 @@
 
     // Called by React on fiber root commits
     onCommitFiberRoot(id, root, priorityLevel) {
-      // Hook for tracking renders - can be overridden by profiler
+      const rendererInterface = hook.rendererInterfaces.get(id);
+      rendererInterface?.trackFiberRoot(root);
     },
 
     // Called by React on fiber unmount
     onCommitFiberUnmount(id, fiber) {
-      // Hook for tracking unmounts
+      const rendererInterface = hook.rendererInterfaces.get(id);
+      rendererInterface?.handleCommitFiberUnmount(fiber);
     },
 
     // Sub-hooks for advanced features
@@ -65,13 +69,29 @@
     const fiberRoots = new Set();
     const fiberToId = new Map();
     const idToFiber = new Map();
-    let nextId = 1;
+    const fiberParents = new Map();
+    let nextId = 2;
 
     return {
+      trackFiberRoot(root) {
+        if (root && root.current) {
+          fiberRoots.add(root);
+        }
+      },
+
+      handleCommitFiberUnmount(fiber) {
+        pruneFiber(fiber);
+      },
+
       // Flush initial operations to populate component tree
       flushInitialOperations() {
+        fiberToId.clear();
+        idToFiber.clear();
+        fiberParents.clear();
+        nextId = 2;
+
         for (const root of fiberRoots) {
-          walkTree(root.current, null);
+          walkTree(root.current, 1);
         }
 
         // Send operations via message event
@@ -126,6 +146,7 @@
       const id = nextId++;
       fiberToId.set(fiber, id);
       idToFiber.set(id, fiber);
+      fiberParents.set(fiber, parentId);
 
       // Walk children
       let child = fiber.child;
@@ -136,34 +157,31 @@
     }
 
     function buildOperations() {
-      const ops = [2, 0]; // version, string table size
       const strings = [];
-
-      // Add root operation
-      ops.push(1, 1, 11, 0, 0, 0, 0); // ADD_ROOT
+      const nodeOps = [];
 
       // Add fiber nodes
       for (const [id, fiber] of idToFiber) {
-        if (id === 1) continue; // Skip root
-
         const name = getDisplayName(fiber);
         const nameIdx = addString(name);
         const keyIdx = fiber.key ? addString(String(fiber.key)) : 0;
-        const parentId = fiberToId.get(fiber.return) || 0;
+        const parentId = fiberParents.get(fiber) || 0;
 
-        ops.push(1, id, 5, parentId, 0, nameIdx, keyIdx, 0); // ADD_NODE
+        nodeOps.push(1, id, 0, parentId, 0, nameIdx, keyIdx, 0); // ADD_NODE
       }
 
-      // Update string table size
-      ops[1] = strings.length;
-
-      // Insert string table after version
       const stringOps = [];
       for (const str of strings) {
         const codePoints = Array.from(str).map(c => c.codePointAt(0));
         stringOps.push(codePoints.length, ...codePoints);
       }
-      ops.splice(2, 0, ...stringOps);
+
+      const ops = [0, 0, stringOps.length, ...stringOps];
+
+      // Add root operation
+      ops.push(1, 1, 11, 0, 0, 0, 0); // ADD_ROOT
+
+      ops.push(...nodeOps);
 
       return ops;
 
@@ -238,6 +256,23 @@
       if (!fiber._debugSource) return null;
       const { fileName, lineNumber, columnNumber } = fiber._debugSource;
       return [null, fileName, lineNumber, columnNumber];
+    }
+
+    function pruneFiber(fiber) {
+      if (!fiber) return;
+
+      const mappedId = fiberToId.get(fiber);
+      if (mappedId != null) {
+        fiberToId.delete(fiber);
+        idToFiber.delete(mappedId);
+        fiberParents.delete(fiber);
+      }
+
+      let child = fiber.child;
+      while (child) {
+        pruneFiber(child);
+        child = child.sibling;
+      }
     }
   }
 

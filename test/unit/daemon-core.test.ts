@@ -18,6 +18,12 @@ function createBrowserMock() {
     vuePinia: vi.fn(async () => "pinia"),
     vueRouter: vi.fn(async () => "router"),
     reactTree: vi.fn(async () => "react"),
+    reactStoreList: vi.fn(async () => "stores"),
+    reactStoreInspect: vi.fn(async () => "store-details"),
+    reactHookHealth: vi.fn(async () => "hook-health"),
+    reactHookInject: vi.fn(async () => "hook-injected"),
+    reactCommits: vi.fn(async () => "react-commits"),
+    reactCommitsClear: vi.fn(async () => "react-commits-cleared"),
     svelteTree: vi.fn(async () => "svelte"),
     viteRestart: vi.fn(async () => "restarted"),
     viteHMRTrace: vi.fn(async () => "hmr"),
@@ -48,6 +54,12 @@ describe("daemon core runner", () => {
     await expect(run({ action: "vue-pinia", store: "main" })).resolves.toMatchObject({ ok: true, data: "pinia" });
     await expect(run({ action: "vue-router" })).resolves.toMatchObject({ ok: true, data: "router" });
     await expect(run({ action: "react-tree", id: "2" })).resolves.toMatchObject({ ok: true, data: "react" });
+    await expect(run({ action: "react-store-list" })).resolves.toMatchObject({ ok: true, data: "stores" });
+    await expect(run({ action: "react-store-inspect", store: "cart" })).resolves.toMatchObject({ ok: true, data: "store-details" });
+    await expect(run({ action: "react-hook-health" })).resolves.toMatchObject({ ok: true, data: "hook-health" });
+    await expect(run({ action: "react-hook-inject" })).resolves.toMatchObject({ ok: true, data: "hook-injected" });
+    await expect(run({ action: "react-commits", limit: 7 })).resolves.toMatchObject({ ok: true, data: "react-commits" });
+    await expect(run({ action: "react-commits-clear" })).resolves.toMatchObject({ ok: true, data: "react-commits-cleared" });
     await expect(run({ action: "svelte-tree", id: "3" })).resolves.toMatchObject({ ok: true, data: "svelte" });
     await expect(run({ action: "vite-restart" })).resolves.toMatchObject({ ok: true, data: "restarted" });
     await expect(run({ action: "vite-runtime" })).resolves.toMatchObject({ ok: true, data: "runtime" });

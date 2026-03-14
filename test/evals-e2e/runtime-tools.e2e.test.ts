@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { connect } from "node:net";
 import { resolve } from "node:path";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
@@ -6,12 +6,11 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const cliPath = resolve(process.cwd(), "dist/cli.js");
-const pnpmCjs = "C:\\Users\\murde\\AppData\\Roaming\\npm\\node_modules\\pnpm\\bin\\pnpm.cjs";
-const npxCmd = "C:\\Program Files\\nodejs\\npx.cmd";
-
-const trackedDemoDir = resolve(process.cwd(), "../demo");
+const pnpmLauncher = resolvePnpmLauncher();
+const trackedDemoDir = resolve(process.cwd(), "test/fixtures/vue-app");
 const trackedDemoMainTs = resolve(trackedDemoDir, "src/main.ts");
 const trackedDemoUrl = "http://127.0.0.1:5173";
+const chromeExecutablePath = resolveChromeExecutablePath();
 
 const localDemoGifDir = resolve(process.cwd(), "demo-gif");
 const localDemoGifExists = existsSync(localDemoGifDir);
@@ -76,18 +75,21 @@ describe.sequential("evals-e2e: vite runtime tools", () => {
   it("covers mapped errors flow with temporary compile error", async () => {
     const original = readFileSync(trackedDemoMainTs, "utf-8");
     try {
-      writeFileSync(trackedDemoMainTs, `${original}\nimport './__vite_browser_tmp_missing__'\n`, "utf-8");
+      writeFileSync(trackedDemoMainTs, `import './__vite_browser_tmp_missing__'\n${original}`, "utf-8");
       await runCli(["reload"]);
-      await sleep(1500);
-
-      const mapped = await runCli(["errors", "--mapped"]);
+      const mapped = await waitForOutput(["errors", "--mapped"], "Failed to resolve import", 10_000);
       expect(mapped).toContain("Failed to resolve import");
 
-      const mappedInline = await runCli(["errors", "--mapped", "--inline-source"]);
+      const mappedInline = await waitForOutput(
+        ["errors", "--mapped", "--inline-source"],
+        "Failed to resolve import",
+        10_000,
+      );
       expect(mappedInline).toContain("Failed to resolve import");
     } finally {
       writeFileSync(trackedDemoMainTs, original, "utf-8");
       await runCli(["reload"], true);
+      await runCli(["open", trackedDemoUrl], true);
       await waitForOutput(["errors"], "no errors", 10_000);
     }
   });
@@ -97,7 +99,7 @@ describe.sequential("evals-e2e: vite runtime tools", () => {
 
     const update = await runCli([
       "eval",
-      "(() => { const store = window.__PINIA__?._s?.get('cart'); if (!store || !store.products?.[0]) return { ok: false }; store.addToCart(store.products[0]); return { ok: true, totalItems: store.totalItems }; })()",
+      "(() => { const button = document.querySelector('main button'); if (!(button instanceof HTMLButtonElement)) return { ok: false }; button.click(); return { ok: true, text: button.textContent }; })()",
     ]);
     expect(update).toContain('"ok": true');
 
@@ -233,21 +235,14 @@ async function startDevServer(
   port: number,
   onOutput: (chunk: string) => void,
   getLogs: () => string,
-  usePinnedNode: boolean,
+  _usePinnedNode: boolean,
 ): Promise<ChildProcess> {
-  const child = usePinnedNode
-    ? spawn(
-        `"${npxCmd}" -y node@22.12.0 "${pnpmCjs}" dev --host 127.0.0.1 --port ${port} --strictPort`,
-        {
-          cwd: dir,
-          stdio: ["ignore", "pipe", "pipe"],
-          shell: true,
-        },
-      )
-    : spawn(process.execPath, [pnpmCjs, "dev", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
-        cwd: dir,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+  const launcher = resolveDevServerLauncher(dir);
+  const child = spawn(launcher.command, [...launcher.args, "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
+    cwd: dir,
+    stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env },
+  });
   child.stdout?.on("data", (chunk) => onOutput(chunk.toString()));
   child.stderr?.on("data", (chunk) => onOutput(chunk.toString()));
   await waitForPort(port, 60_000, getLogs);
@@ -256,8 +251,13 @@ async function startDevServer(
 
 async function stopDevServer(child: ChildProcess | null, port: number) {
   if (child?.pid) {
-    spawnSync("cmd.exe", ["/c", `taskkill /PID ${child.pid} /T /F`], { stdio: "ignore" });
+    if (process.platform === "win32") {
+      spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore", shell: true });
+    } else {
+      child.kill("SIGTERM");
+    }
   }
+  await sleep(250);
   await stopPortOwner(port);
 }
 
@@ -276,7 +276,14 @@ async function waitForOutput(args: string[], expected: string, timeoutMs: number
 
 async function runCli(args: string[], allowFail = false): Promise<string> {
   const result = await new Promise<{ code: number | null; stdout: string; stderr: string }>((resolveResult) => {
-    const child = spawn("node", [cliPath, ...args], { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(process.execPath, [cliPath, ...args], {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        VITE_BROWSER_HEADLESS: "1",
+        ...(chromeExecutablePath ? { VITE_BROWSER_EXECUTABLE_PATH: chromeExecutablePath } : {}),
+      },
+    });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => (stdout += chunk.toString()));
@@ -310,6 +317,71 @@ async function waitForPort(port: number, timeoutMs: number, getLogs: () => strin
 }
 
 async function stopPortOwner(port: number) {
-  const cmd = `for /f "tokens=5" %a in ('netstat -ano ^| findstr LISTENING ^| findstr :${port}') do taskkill /PID %a /T /F`;
-  spawnSync("cmd.exe", ["/c", cmd], { stdio: "ignore" });
+  if (process.platform === "win32") {
+    const cmd = `for /f "tokens=5" %a in ('netstat -ano ^| findstr LISTENING ^| findstr :${port}') do taskkill /PID %a /T /F`;
+    spawnSync("cmd.exe", ["/c", cmd], { stdio: "ignore" });
+    return;
+  }
+
+  spawnSync(
+    "sh",
+    ["-c", `pids=$(lsof -ti tcp:${port} 2>/dev/null); [ -z "$pids" ] || kill -TERM $pids >/dev/null 2>&1 || true`],
+    { stdio: "ignore" },
+  );
+}
+
+function resolvePnpmLauncher(): { command: string; args: string[] } {
+  const scriptCandidates = [
+    process.env.npm_execpath,
+    "/opt/homebrew/bin/pnpm",
+    "/usr/local/bin/pnpm",
+  ].filter((value): value is string => Boolean(value) && existsSync(value));
+
+  for (const candidate of scriptCandidates) {
+    try {
+      const scriptPath = realpathSync(candidate);
+      return { command: "node", args: [scriptPath] };
+    } catch {
+      continue;
+    }
+  }
+
+  const lookup = process.platform === "win32"
+    ? spawnSync("where", ["pnpm"], { encoding: "utf-8", shell: true })
+    : spawnSync("which", ["pnpm"], { encoding: "utf-8" });
+  const match = lookup.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+  return { command: match || "pnpm", args: [] };
+}
+
+function resolveDevServerLauncher(dir: string): { command: string; args: string[] } {
+  const localViteBin = resolve(dir, "node_modules/vite/bin/vite.js");
+  if (existsSync(localViteBin)) {
+    return { command: process.execPath, args: [localViteBin] };
+  }
+
+  return { command: pnpmLauncher.command, args: [...pnpmLauncher.args, "dev"] };
+}
+
+function resolveChromeExecutablePath(): string | undefined {
+  const candidates = process.platform === "win32"
+    ? [
+        `${process.env.PROGRAMFILES ?? "C:\\Program Files"}\\Google\\Chrome\\Application\\chrome.exe`,
+        `${process.env["PROGRAMFILES(X86)"] ?? "C:\\Program Files (x86)"}\\Google\\Chrome\\Application\\chrome.exe`,
+      ]
+    : process.platform === "darwin"
+      ? [
+          "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+          "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        ]
+      : [
+          "/usr/bin/google-chrome",
+          "/usr/bin/chromium",
+          "/usr/bin/chromium-browser",
+          "/snap/bin/chromium",
+        ];
+
+  return candidates.find((candidate) => existsSync(candidate));
 }

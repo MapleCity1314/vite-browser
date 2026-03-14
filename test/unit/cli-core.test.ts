@@ -129,6 +129,40 @@ describe("cli runner", () => {
     });
   });
 
+  it("routes react zustand store commands", async () => {
+    const listCtx = createIo();
+    await expectExit(runCli(["node", "cli", "react", "store", "list"], listCtx.io));
+    expect(listCtx.send).toHaveBeenLastCalledWith("react-store-list");
+
+    const inspectCtx = createIo();
+    await expectExit(runCli(["node", "cli", "react", "store", "inspect", "cart"], inspectCtx.io));
+    expect(inspectCtx.send).toHaveBeenLastCalledWith("react-store-inspect", {
+      store: "cart",
+    });
+  });
+
+  it("routes react hook commands", async () => {
+    const healthCtx = createIo();
+    await expectExit(runCli(["node", "cli", "react", "hook", "health"], healthCtx.io));
+    expect(healthCtx.send).toHaveBeenLastCalledWith("react-hook-health");
+
+    const injectCtx = createIo();
+    await expectExit(runCli(["node", "cli", "react", "hook", "inject"], injectCtx.io));
+    expect(injectCtx.send).toHaveBeenLastCalledWith("react-hook-inject");
+  });
+
+  it("routes react commit commands", async () => {
+    const commitsCtx = createIo();
+    await expectExit(runCli(["node", "cli", "react", "commits", "--limit", "7"], commitsCtx.io));
+    expect(commitsCtx.send).toHaveBeenLastCalledWith("react-commits", {
+      limit: 7,
+    });
+
+    const clearCtx = createIo();
+    await expectExit(runCli(["node", "cli", "react", "commits", "clear"], clearCtx.io));
+    expect(clearCtx.send).toHaveBeenLastCalledWith("react-commits-clear");
+  });
+
   it("validates required args", async () => {
     const gotoCtx = createIo();
     await expectExit(runCli(["node", "cli", "goto"], gotoCtx.io));
@@ -137,5 +171,13 @@ describe("cli runner", () => {
     const evalCtx = createIo();
     await expectExit(runCli(["node", "cli", "eval"], evalCtx.io));
     expect(evalCtx.stderr[0]).toContain("usage: vite-browser eval <script>");
+
+    const storeCtx = createIo();
+    await expectExit(runCli(["node", "cli", "react", "store", "inspect"], storeCtx.io));
+    expect(storeCtx.stderr[0]).toContain("usage: vite-browser react store inspect <name>");
+
+    const hookCtx = createIo();
+    await expectExit(runCli(["node", "cli", "react", "hook"], hookCtx.io));
+    expect(hookCtx.stderr[0]).toContain("usage: vite-browser react hook <health|inject>");
   });
 });

@@ -96,6 +96,30 @@ export function createRunner(api: BrowserApi = browser) {
       const data = await api.reactTree(cmd.id);
       return { ok: true, data };
     }
+    if (cmd.action === "react-store-list") {
+      const data = await api.reactStoreList();
+      return { ok: true, data };
+    }
+    if (cmd.action === "react-store-inspect") {
+      const data = await api.reactStoreInspect(cmd.store!);
+      return { ok: true, data };
+    }
+    if (cmd.action === "react-hook-health") {
+      const data = await api.reactHookHealth();
+      return { ok: true, data };
+    }
+    if (cmd.action === "react-hook-inject") {
+      const data = await api.reactHookInject();
+      return { ok: true, data };
+    }
+    if (cmd.action === "react-commits") {
+      const data = await api.reactCommits(cmd.limit ?? 20);
+      return { ok: true, data };
+    }
+    if (cmd.action === "react-commits-clear") {
+      const data = await api.reactCommitsClear();
+      return { ok: true, data };
+    }
 
     // Svelte commands
     if (cmd.action === "svelte-tree") {

@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { chromium, type BrowserContext, type Page } from "playwright";
 import type { ReactNode } from "./react/devtools.js";
 import { getHookSource } from "./react/hook-manager.js";
@@ -126,9 +127,39 @@ export function platformChromiumArgs(extra: string[] = []): string[] {
   return args;
 }
 
+export function resolveChromiumExecutablePath(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const explicit = env.VITE_BROWSER_EXECUTABLE_PATH || env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+  if (explicit && existsSync(explicit)) return explicit;
+
+  const candidates = isWindows
+    ? [
+        `${env.PROGRAMFILES ?? "C:\\Program Files"}\\Google\\Chrome\\Application\\chrome.exe`,
+        `${env["PROGRAMFILES(X86)"] ?? "C:\\Program Files (x86)"}\\Google\\Chrome\\Application\\chrome.exe`,
+        `${env.LOCALAPPDATA ?? ""}\\Google\\Chrome\\Application\\chrome.exe`,
+      ]
+    : isLinux
+      ? [
+          "/usr/bin/google-chrome",
+          "/usr/bin/chromium",
+          "/usr/bin/chromium-browser",
+          "/snap/bin/chromium",
+        ]
+      : [
+          "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+          "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        ];
+
+  return candidates.find((candidate) => Boolean(candidate) && existsSync(candidate));
+}
+
+export function resolveBrowserHeadless(env: NodeJS.ProcessEnv = process.env): boolean {
+  return /^(1|true|yes)$/i.test(env.VITE_BROWSER_HEADLESS || "");
+}
+
 async function launchBrowserContext(): Promise<BrowserContext> {
   const browser = await chromium.launch({
-    headless: false,
+    headless: resolveBrowserHeadless(),
+    executablePath: resolveChromiumExecutablePath(),
     args: platformChromiumArgs(),
   });
 

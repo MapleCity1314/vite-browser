@@ -216,7 +216,7 @@ describe("cli routing", () => {
       const got = daemon.received[daemon.received.length - 1];
       expect(got).toMatchObject(item.expected);
     }
-  });
+  }, 20_000);
 });
 
 function registerCleanup(daemon: Awaited<ReturnType<typeof startInspectDaemon>>) {

@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { resolveSocketDir, sanitizeSession } from "../../src/paths.js";
 import {
@@ -61,11 +64,17 @@ describe("platformChromiumArgs", () => {
 
 describe("browser launch config", () => {
   it("honors explicit executable path from env", () => {
+    const dir = mkdtempSync(join(tmpdir(), "vite-browser-chrome-"));
+    const executable = join(dir, "chrome");
+    writeFileSync(executable, "");
+
     expect(
       resolveChromiumExecutablePath({
-        VITE_BROWSER_EXECUTABLE_PATH: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        VITE_BROWSER_EXECUTABLE_PATH: executable,
       } as NodeJS.ProcessEnv),
-    ).toBe("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome");
+    ).toBe(executable);
+
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it("defaults headless to false", () => {

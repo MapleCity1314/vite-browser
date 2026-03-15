@@ -23,6 +23,8 @@ vite-browser diagnose hmr --limit 50
 
 **场景：** store 更新或状态变化似乎导致了下游组件的渲染异常。
 
+Vue + Pinia：
+
 ```bash
 vite-browser correlate renders --window 5000
 vite-browser diagnose propagation --window 5000
@@ -30,7 +32,18 @@ vite-browser vue pinia
 vite-browser vue tree
 ```
 
-**最适合：** Vue + Pinia 工作流中 `store 变化 → 重渲染 → 组件崩溃` 这类问题。
+React + Zustand：
+
+```bash
+vite-browser correlate renders --window 5000
+vite-browser diagnose propagation --window 5000
+vite-browser react store list
+vite-browser react store inspect <name>
+vite-browser react commits --limit 20
+vite-browser react tree
+```
+
+**最适合：** `store 变化 → 重渲染 → 组件崩溃` 这类问题。
 
 ## 网络排查
 

@@ -25,7 +25,7 @@ vite-browser logs
 Then inspect framework state based on what `detect` returned:
 
 - **Vue:** `vue tree`, `vue pinia`, `vue router`
-- **React:** `react tree`
+- **React:** `react tree`, `react store list`, `react store inspect <name>`, `react hook health`, `react commits`
 - **Svelte:** `svelte tree`
 
 Cross-check when needed:

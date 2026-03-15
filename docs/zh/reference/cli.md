@@ -20,6 +20,12 @@ vite-browser vue tree [id]            # Vue 组件树
 vite-browser vue pinia [store]        # Pinia store 状态
 vite-browser vue router               # Vue Router 状态
 vite-browser react tree [id]          # React 组件树
+vite-browser react store list         # 列出检测到的 Zustand store
+vite-browser react store inspect <n>  # 查看 Zustand store 状态
+vite-browser react hook health        # 查看内置 React hook 状态
+vite-browser react hook inject        # 向当前页面注入内置 hook
+vite-browser react commits [--limit <n>]  # 查看最近 React commit 记录
+vite-browser react commits clear      # 清除 commit 记录
 vite-browser svelte tree [id]         # Svelte 组件树
 ```
 

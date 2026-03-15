@@ -66,8 +66,9 @@ Four commands. You know the store update broke the render path. You know where t
 - **Error correlation** — Match errors against recent HMR-updated modules within a time window
 - **Propagation diagnosis** — Trace `store → render → error` paths with confidence levels
 - **HMR diagnosis** — Detect patterns like `missing-module`, `circular-dependency`, `hmr-websocket-closed`
-- **Framework inspection** — Vue trees, Pinia stores, Vue Router, React props/hooks/state, Svelte trees
+- **Framework inspection** — Vue trees, Pinia stores, Vue Router; React trees, Zustand stores, hook diagnostics, commit tracing; Svelte trees
 - **Mapped errors** — Source-mapped stack traces with inline source snippets
+- **Screenshot** — Full-page capture for visual verification; multimodal AI agents can "see" the page to confirm fixes or catch layout/style regressions that don't surface in logs
 - **Zero config** — No plugins, no project changes. Works with any running Vite dev server
 
 ## Agent Skills
@@ -103,6 +104,9 @@ vite-browser diagnose propagation --window <ms>
 vite-browser detect
 vite-browser vue tree | vue pinia | vue router
 vite-browser react tree
+vite-browser react store list | react store inspect <name>
+vite-browser react hook health | react hook inject
+vite-browser react commits [--limit <n>] | react commits clear
 vite-browser svelte tree
 
 # Vite runtime
@@ -111,18 +115,19 @@ vite-browser vite hmr trace --limit <n>
 vite-browser vite module-graph trace --limit <n>
 
 # Utilities
-vite-browser logs | network | screenshot | eval <script>
+vite-browser screenshot                # Full-page capture (visual verification)
+vite-browser logs | network | eval <script>
 ```
 
 → [Full CLI reference](https://maplecity1314.github.io/vite-browser/reference/cli)
 
 ## Current scope
 
-`v0.3.3` is reliable at surfacing runtime state, correlating errors with HMR activity, detecting common HMR failure patterns, and narrowing `store → render → error` paths in Vue + Pinia workflows.
+`v0.3.6` is the current stable release. It provides reliable runtime state surfacing, error-HMR correlation, common HMR failure pattern detection, and `store → render → error` path narrowing for both Vue + Pinia and React + Zustand workflows.
+
+React support includes component tree inspection, Zustand store discovery and state reading, bundled DevTools hook (zero-config, no browser extension needed), hook diagnostics, and lightweight commit tracing.
 
 `correlate renders` and `diagnose propagation` are **high-confidence narrowing tools**, not strict causal proof. They intentionally produce conservative output when evidence is incomplete.
-
-React store inspection (Zustand, Redux) and deeper cross-framework propagation tracing are on the roadmap.
 
 ## Development
 

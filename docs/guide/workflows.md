@@ -23,6 +23,8 @@ vite-browser diagnose hmr --limit 50
 
 **When:** A store update or state mutation appears to have broken a downstream render path.
 
+Vue + Pinia:
+
 ```bash
 vite-browser correlate renders --window 5000
 vite-browser diagnose propagation --window 5000
@@ -30,7 +32,18 @@ vite-browser vue pinia
 vite-browser vue tree
 ```
 
-**Best for:** Vue + Pinia workflows where the bug pattern is `store change → rerender → broken component`.
+React + Zustand:
+
+```bash
+vite-browser correlate renders --window 5000
+vite-browser diagnose propagation --window 5000
+vite-browser react store list
+vite-browser react store inspect <name>
+vite-browser react commits --limit 20
+vite-browser react tree
+```
+
+**Best for:** Workflows where the bug pattern is `store change → rerender → broken component`.
 
 ## Network triage
 

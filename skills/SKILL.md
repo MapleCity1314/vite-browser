@@ -73,6 +73,12 @@ vite-browser vue tree [id]
 vite-browser vue pinia [store]
 vite-browser vue router
 vite-browser react tree [id]
+vite-browser react store list
+vite-browser react store inspect <name>
+vite-browser react hook health
+vite-browser react hook inject
+vite-browser react commits [--limit <n>]
+vite-browser react commits clear
 vite-browser svelte tree [id]
 ```
 

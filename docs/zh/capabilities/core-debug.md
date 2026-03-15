@@ -25,7 +25,7 @@ vite-browser logs
 根据 `detect` 的结果检查框架状态：
 
 - **Vue：** `vue tree`、`vue pinia`、`vue router`
-- **React：** `react tree`
+- **React：** `react tree`、`react store list`、`react store inspect <name>`、`react hook health`、`react commits`
 - **Svelte：** `svelte tree`
 
 需要时交叉验证：

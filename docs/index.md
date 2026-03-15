@@ -62,7 +62,7 @@ features:
     <div class="vb-home-card">
       <h3>Inspect framework state</h3>
       <p>
-        Query Vue component trees, Pinia stores, React props and hooks, or Svelte state —
+        Query Vue component trees, Pinia stores, React trees, Zustand stores, hook diagnostics, commit tracing, or Svelte state —
         alongside console logs, network traces, and source-mapped errors — all from one terminal.
       </p>
     </div>

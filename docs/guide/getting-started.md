@@ -72,12 +72,21 @@ vite-browser correlate errors --mapped --window 5000
 vite-browser diagnose hmr --limit 50
 ```
 
-### Store-driven render failure
+### Store-driven render failure (Vue)
 
 ```bash
 vite-browser correlate renders --window 5000
 vite-browser diagnose propagation --window 5000
 vite-browser vue pinia
+```
+
+### Store-driven render failure (React)
+
+```bash
+vite-browser correlate renders --window 5000
+vite-browser diagnose propagation --window 5000
+vite-browser react store list
+vite-browser react store inspect <name>
 ```
 
 ### API or data issue

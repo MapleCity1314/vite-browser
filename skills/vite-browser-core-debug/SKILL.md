@@ -59,6 +59,10 @@ Then branch based on routing decision:
 - React:
   - `vite-browser react tree`
   - `vite-browser react tree <id>`
+  - `vite-browser react store list`
+  - `vite-browser react store inspect <name>`
+  - `vite-browser react hook health`
+  - `vite-browser react commits [--limit <n>]`
 - Svelte:
   - `vite-browser svelte tree`
   - `vite-browser svelte tree <id>`

@@ -61,7 +61,7 @@ features:
     <div class="vb-home-card">
       <h3>检查框架状态</h3>
       <p>
-        查询 Vue 组件树、Pinia 状态、React props 和 hooks、Svelte 状态 ——
+        查询 Vue 组件树、Pinia 状态、React 组件树、Zustand store、hook 诊断、commit 追踪、Svelte 状态 ——
         同时查看控制台日志、网络请求和源码映射后的错误 —— 全在一个终端里完成。
       </p>
     </div>

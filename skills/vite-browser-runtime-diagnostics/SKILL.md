@@ -66,6 +66,8 @@ Use `diagnose propagation` first when the question is about rerenders, component
 3. `correlate renders --window 5000`
 4. `diagnose propagation --window 5000`
 5. Use `Store Updates`, `Changed Keys`, and `Render Path` to choose the first store/component to inspect.
+   - Vue: `vue pinia [store]`, `vue tree`
+   - React: `react store list`, `react store inspect <name>`, `react commits --limit 20`, `react tree`
 6. If the output is inconclusive or says no trace is available, keep the conclusion conservative and do not overstate a causal chain.
 
 ### Stack mapping

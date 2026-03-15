@@ -20,6 +20,12 @@ vite-browser vue tree [id]            # Vue component tree
 vite-browser vue pinia [store]        # Pinia store state
 vite-browser vue router               # Vue Router state
 vite-browser react tree [id]          # React component tree
+vite-browser react store list         # List detected Zustand stores
+vite-browser react store inspect <n>  # Show Zustand store state
+vite-browser react hook health        # Show bundled React hook status
+vite-browser react hook inject        # Inject bundled hook into page
+vite-browser react commits [--limit <n>]  # Show recent React commit records
+vite-browser react commits clear      # Clear recorded commit history
 vite-browser svelte tree [id]         # Svelte component tree
 ```
 

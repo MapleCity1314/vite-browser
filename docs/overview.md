@@ -33,7 +33,7 @@ When a Vite app breaks after a hot update, the error overlay tells you _what_ fa
 - **Error correlation** — Match the current error against recent HMR-updated modules within a configurable time window.
 - **Propagation diagnosis** — Trace `store → render → error` paths when a state change breaks a downstream component.
 - **HMR diagnosis** — Detect patterns like `missing-module`, `circular-dependency`, or `hmr-websocket-closed` with confidence levels.
-- **Framework inspection** — Query Vue component trees, Pinia stores, Vue Router, React props/hooks/state, or Svelte component trees.
+- **Framework inspection** — Query Vue component trees, Pinia stores, Vue Router; React component trees, Zustand stores, hook diagnostics, commit tracing; or Svelte component trees.
 - **Mapped errors** — Source-mapped stack traces with optional inline source snippets.
 
 ## Capability map

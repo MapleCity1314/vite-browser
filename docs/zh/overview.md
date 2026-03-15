@@ -33,7 +33,7 @@ npx playwright install chromium
 - **错误关联** —— 将当前错误与最近 HMR 更新的模块在可配置的时间窗口内匹配。
 - **传播诊断** —— 当一个状态变化导致下游组件崩溃时，追踪 `store → render → error` 路径。
 - **HMR 诊断** —— 检测 `missing-module`、`circular-dependency`、`hmr-websocket-closed` 等模式，并标注置信度。
-- **框架检查** —— 查询 Vue 组件树、Pinia 状态、Vue Router、React 的 props/hooks/state，或 Svelte 组件树。
+- **框架检查** —— 查询 Vue 组件树、Pinia 状态、Vue Router；React 组件树、Zustand store 状态、hook 诊断、commit 追踪；或 Svelte 组件树。
 - **映射错误** —— 经过 sourcemap 解析的错误栈，支持内联源码片段。
 
 ## 能力地图

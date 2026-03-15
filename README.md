@@ -8,6 +8,10 @@ Built for developers and AI coding agents alike.
 
 📖 [Documentation](https://maplecity1314.github.io/vite-browser/) · 📦 [npm](https://www.npmjs.com/package/@presto1314w/vite-devtools-browser)
 
+<p align="center">
+  <img src="assets/demo.gif" alt="vite-browser demo" width="720" />
+</p>
+
 ## Install
 
 **Agent Skill** (recommended):

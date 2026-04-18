@@ -277,6 +277,12 @@ export async function runCli(argv: string[], io: CliIo) {
     exit(io, res, res.ok && res.data ? String(res.data) : "");
   }
 
+  if (cmd === "mcp") {
+    const { startMcpServer } = await import("./mcp.js");
+    await startMcpServer();
+    io.exit(0);
+  }
+
   io.stderr(`unknown command: ${cmd}`);
   io.exit(1);
 }
@@ -351,6 +357,9 @@ UTILITIES
   screenshot                          Save screenshot to temp file
   eval <script>                       Evaluate JavaScript in page context
   network [idx]                       List network requests or inspect one
+
+MCP
+  mcp                                 Start MCP stdio server (for Claude Code / AI agents)
 
 OPTIONS
   -h, --help                          Show this help message
